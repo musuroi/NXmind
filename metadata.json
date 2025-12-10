@@ -1,0 +1,5 @@
+{
+  "name": "MindFlow Notes",
+  "description": "A minimalist, dark-mode mind map note-taking app with auto-save and seamless state restoration.",
+  "requestFramePermissions": []
+}
