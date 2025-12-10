@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import * as d3 from 'd3';
 import { MindNode, ViewState, D3Node, Theme } from '../types';
-import { generateId, findNodeById, getContrastingTextColor, getSmartBorderColor, moveNode, moveNodes, isDescendant } from '../utils/helpers';
+import { generateId, findNodeById, findParentNode, getContrastingTextColor, getSmartBorderColor, moveNode, moveNodes, isDescendant } from '../utils/helpers';
 import { useHistory } from '../utils/useHistory';
 
 interface MindMapProps {
@@ -68,6 +68,9 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
 
   // Layout cache to help with selection calculation
   const layoutCache = useRef<any[]>([]);
+
+  // Key press tracking for double-tap detection
+  const lastKeyRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
 
   useEffect(() => {
       if (data.id !== internalData.id) {
@@ -210,33 +213,37 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   }, [internalData]);
 
   // --- Center View Logic ---
-  const centerView = useCallback((clearFocus = true) => {
+  const centerView = useCallback((targetId?: string | null, clearFocus = true) => {
     if (!wrapperRef.current || !svgRef.current || !zoomBehaviorRef.current) return;
     
     const root = calculateLayout();
-    const rootNode = root.descendants().find((d: any) => d.data.id === internalData.id) as any;
-    if (!rootNode) return;
+    // Default to root if no targetId provided
+    const idToFind = targetId || internalData.id;
+    const targetNode = root.descendants().find((d: any) => d.data.id === idToFind) as any;
+    
+    if (!targetNode) return;
 
     const width = wrapperRef.current.clientWidth;
     const height = wrapperRef.current.clientHeight;
     const isPortrait = height > width;
 
     // Node: x=vertical, y=horizontal (D3 Tree)
-    // Rendered: x={node.y - 10}, y={node.x - 40}
-    const nodeScreenX = rootNode.y - 10;
-    // const nodeScreenY = rootNode.x - 40;
-    const nodeW = rootNode.width + 20;
+    const nodeScreenX = targetNode.y - 10;
+    const nodeScreenY = targetNode.x - 40;
+    const nodeW = targetNode.width + 20;
     const nodeH = 80;
 
-    // True Center
-    const nodeCenterX = (rootNode.y - 10) + nodeW / 2;
-    const nodeCenterY = (rootNode.x - 40) + nodeH / 2;
+    // Center of the target node
+    const nodeCenterX = nodeScreenX + nodeW / 2;
+    const nodeCenterY = nodeScreenY + nodeH / 2;
 
     let targetX, targetY;
 
     if (isPortrait) {
-        // Portrait: Left edge at 5% width
-        targetX = (width * 0.05) - nodeScreenX;
+        // Portrait: Left edge at 5% width (logic from before, maybe mainly for root)
+        // For arbitrary node, center might be better, but let's stick to centering logic.
+        // If focusing a specific node, we usually want it centered.
+        targetX = (width / 2) - nodeCenterX;
         targetY = (height / 2) - nodeCenterY;
     } else {
         // Landscape: Center
@@ -254,7 +261,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
         x: targetX,
         y: targetY,
         k: 1,
-        focusedNodeId: clearFocus ? null : viewState.focusedNodeId,
+        focusedNodeId: clearFocus ? null : (targetId || viewState.focusedNodeId),
         needsCentering: false
     });
   }, [calculateLayout, internalData.id, onViewStateChange, viewState.focusedNodeId]);
@@ -270,7 +277,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
             }
             setSelectedIds(new Set());
             setEditingId(null);
-            centerView(true); // Clear focus
+            centerView(null, true); // Reset to Root and Clear Focus
         }
     };
     window.addEventListener('keydown', handleGlobalKey);
@@ -280,9 +287,22 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   // --- Initial Centering ---
   useEffect(() => {
       if (viewState.needsCentering) {
-          centerView(false); // Keep focus
+          centerView(viewState.focusedNodeId, false); // Center on focused node if possible
       }
-  }, [viewState.needsCentering, centerView]);
+  }, [viewState.needsCentering, centerView, viewState.focusedNodeId]);
+
+  // --- Input Caret Color Logic ---
+  const handleInputSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
+      const input = e.currentTarget;
+      // Change caret color if at boundary to indicate navigation readiness
+      if (input.selectionStart === 0 && input.selectionEnd === 0) {
+          input.style.caretColor = '#f472b6'; // Pink-400 (Left Ready)
+      } else if (input.selectionStart === input.value.length) {
+          input.style.caretColor = '#22d3ee'; // Cyan-400 (Right Ready)
+      } else {
+          input.style.caretColor = ''; // Default (Inherit/White)
+      }
+  };
 
   // --- Auto Pan for New Nodes ---
   useEffect(() => {
@@ -416,7 +436,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
     onViewStateChange({...viewState, focusedNodeId: newId});
   };
 
-  const deleteNode = (id: string) => {
+  const deleteNode = (id: string, nextFocusId?: string) => {
       if (id === internalData.id) return;
       let parentId: string | null = null;
       const remove = (node: MindNode): MindNode => {
@@ -428,10 +448,12 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
       };
       const newData = remove(internalData);
       setInternalDataWithHistory(newData);
-      if (parentId) {
-        setEditingId(parentId);
-        setSelectedIds(new Set([parentId!]));
-        onViewStateChange({...viewState, focusedNodeId: parentId});
+      
+      const targetId = nextFocusId || parentId;
+      if (targetId) {
+        setEditingId(targetId);
+        setSelectedIds(new Set([targetId]));
+        onViewStateChange({...viewState, focusedNodeId: targetId});
       }
   };
 
@@ -442,6 +464,14 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
           idsToDelete.splice(idsToDelete.indexOf(internalData.id), 1);
       }
       if (idsToDelete.length === 0) return;
+
+      // Find a fallback node to focus (parent of the first deleted node)
+      let fallbackId: string | null = null;
+      if (idsToDelete.length > 0) {
+          const firstId = idsToDelete[0];
+          const parent = findParentNode(internalData, firstId);
+          if (parent) fallbackId = parent.id;
+      }
 
       const removeRecursive = (node: MindNode): MindNode => {
           return {
@@ -455,22 +485,106 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
       const newData = removeRecursive(internalData);
       setInternalDataWithHistory(newData);
       setSelectedIds(new Set());
-      setEditingId(null);
+      
+      if (fallbackId && findNodeById(newData, fallbackId)) {
+          setEditingId(fallbackId);
+          onViewStateChange({...viewState, focusedNodeId: fallbackId});
+      } else {
+          setEditingId(null);
+      }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, nodeId: string) => {
       e.stopPropagation();
-      // If editing text, do standard processing
-      if (e.key === 'Tab') {
+      
+      const now = Date.now();
+      const DOUBLE_TAP_DELAY = 300;
+      
+      // Helper to check double tap
+      const isDoubleTap = (key: string) => {
+          const isDt = lastKeyRef.current && 
+                       lastKeyRef.current.key === key && 
+                       (now - lastKeyRef.current.time) < DOUBLE_TAP_DELAY;
+          lastKeyRef.current = { key, time: now };
+          return isDt;
+      };
+
+      if (e.altKey && e.key === 'Enter') {
+           e.preventDefault();
+           // Focus View on Current Node
+           centerView(nodeId, false);
+      } else if (e.key === 'Tab') {
           e.preventDefault();
+          if (e.repeat) return;
           addChild(nodeId);
       } else if (e.key === 'Enter') {
           e.preventDefault();
           addSibling(nodeId);
       } else if (e.key === 'Escape') {
           (e.target as HTMLInputElement).blur();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (e.key === 'Delete') {
+              e.preventDefault();
+              const parent = findParentNode(internalData, nodeId);
+              let nextFocusId: string | undefined;
+              if (parent) {
+                  const idx = parent.children.findIndex(c => c.id === nodeId);
+                  if (idx > 0) {
+                      nextFocusId = parent.children[idx - 1].id;
+                  } else {
+                      nextFocusId = parent.id;
+                  }
+              }
+              deleteNode(nodeId, nextFocusId);
+          }
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const parent = findParentNode(internalData, nodeId);
+          if (parent) {
+              const idx = parent.children.findIndex(c => c.id === nodeId);
+              let target: MindNode | undefined;
+              if (e.key === 'ArrowUp') {
+                  if (idx > 0) target = parent.children[idx - 1];
+              } else {
+                  if (idx < parent.children.length - 1) target = parent.children[idx + 1];
+              }
+              if (target) {
+                  setEditingId(target.id);
+                  onViewStateChange({...viewState, focusedNodeId: target.id});
+              }
+          }
+      } else if (e.key === 'ArrowLeft') {
+          const input = e.target as HTMLInputElement;
+          // Only allow navigation if cursor is at the START (0)
+          if (input.selectionStart === 0 && input.selectionEnd === 0) {
+             if (isDoubleTap('ArrowLeft')) {
+                 e.preventDefault();
+                 const parent = findParentNode(internalData, nodeId);
+                 if (parent) {
+                     setEditingId(parent.id);
+                     onViewStateChange({...viewState, focusedNodeId: parent.id});
+                 }
+             }
+          } else {
+              lastKeyRef.current = { key: '', time: 0 };
+          }
+      } else if (e.key === 'ArrowRight') {
+          const input = e.target as HTMLInputElement;
+          // Only allow navigation if cursor is at the END
+          if (input.selectionStart === input.value.length) {
+              if (isDoubleTap('ArrowRight')) {
+                  e.preventDefault();
+                  const node = findNodeById(internalData, nodeId);
+                  if (node && node.children.length > 0) {
+                      const child = node.children[0];
+                      setEditingId(child.id);
+                      onViewStateChange({...viewState, focusedNodeId: child.id});
+                  }
+              }
+          } else {
+              lastKeyRef.current = { key: '', time: 0 };
+          }
       }
-      // Note: Delete handled globally for batch
   };
 
   // --- Helper: 获取相对于容器的坐标 (修复跳变问题) ---
@@ -735,16 +849,22 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
                             onChange={(e) => handleTextChange(node.data.id, e.target.value)}
                             onBlur={() => handleTextBlur(node.data.id)}
                             onKeyDown={(e) => handleKeyDown(e, node.data.id)}
+                            onSelect={handleInputSelect}
+                            onKeyUp={handleInputSelect}
+                            onClick={handleInputSelect}
                             disabled={selectedIds.size > 1} // Disable input when multi-selected
                             className={`bg-transparent outline-none w-full text-center leading-tight placeholder-opacity-50 cursor-text ${selectedIds.size > 1 ? 'pointer-events-none' : ''}`}
                             style={{ 
                                 color: textColor,
-                                caretColor: textColor,
+                                caretColor: textColor, // Will be overridden by inline style in handleInputSelect
                             }}
                             ref={(el) => {
                                 if (el && isFocused && selectedIds.size === 1) {
                                     if (document.activeElement !== el) {
                                         el.focus({ preventScroll: true });
+                                        // Update caret color initially if needed
+                                        // But we can't easily trigger the event here without extra logic. 
+                                        // Default is fine.
                                     }
                                 }
                             }}
