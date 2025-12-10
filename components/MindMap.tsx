@@ -218,7 +218,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   }, [internalData]);
 
   // --- Center View Logic ---
-  const centerView = useCallback((targetId?: string | null, clearFocus = true) => {
+    const centerView = useCallback((targetId?: string | null, clearFocus = true, preserveScale = false) => {
     if (!wrapperRef.current || !svgRef.current || !zoomBehaviorRef.current) return;
     
     const root = calculateLayout();
@@ -230,7 +230,10 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
 
     const width = wrapperRef.current.clientWidth;
     const height = wrapperRef.current.clientHeight;
-    const isPortrait = height > width;
+
+    const currentTransform = d3.zoomTransform(svgRef.current);
+    // Determine the target scale
+    const targetScale = preserveScale ? currentTransform.k : 1;
 
     // Node: x=vertical, y=horizontal (D3 Tree)
     const nodeScreenX = targetNode.y - 10;
@@ -238,25 +241,15 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
     const nodeW = targetNode.width + 20;
     const nodeH = 80;
 
-    // Center of the target node
+    // Center of the target node in its own coordinate system
     const nodeCenterX = nodeScreenX + nodeW / 2;
     const nodeCenterY = nodeScreenY + nodeH / 2;
 
-    let targetX, targetY;
+    // Calculate new translation based on the target scale
+    const targetX = (width / 2) - (nodeCenterX * targetScale);
+    const targetY = (height / 2) - (nodeCenterY * targetScale);
 
-    if (isPortrait) {
-        // Portrait: Left edge at 5% width (logic from before, maybe mainly for root)
-        // For arbitrary node, center might be better, but let's stick to centering logic.
-        // If focusing a specific node, we usually want it centered.
-        targetX = (width / 2) - nodeCenterX;
-        targetY = (height / 2) - nodeCenterY;
-    } else {
-        // Landscape: Center
-        targetX = (width / 2) - nodeCenterX;
-        targetY = (height / 2) - nodeCenterY;
-    }
-
-    const transform = d3.zoomIdentity.translate(targetX, targetY).scale(1);
+    const transform = d3.zoomIdentity.translate(targetX, targetY).scale(targetScale);
     
     d3.select(svgRef.current)
       .transition().duration(500)
@@ -265,7 +258,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
     onViewStateChange({
         x: targetX,
         y: targetY,
-        k: 1,
+        k: targetScale,
         focusedNodeId: clearFocus ? null : (targetId || viewState.focusedNodeId),
         needsCentering: false
     });
@@ -515,9 +508,9 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
       };
 
       if (e.altKey && e.key === 'Enter') {
-           e.preventDefault();
-           // Focus View on Current Node
-           centerView(nodeId, false);
+                      e.preventDefault();
+           // Focus View on Current Node, preserving zoom
+           centerView(nodeId, false, true);
       } else if (e.key === 'Tab') {
           e.preventDefault();
           if (e.repeat) return;
@@ -542,20 +535,39 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
               }
               deleteNode(nodeId, nextFocusId);
           }
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const parent = findParentNode(internalData, nodeId);
-          if (parent) {
-              const idx = parent.children.findIndex(c => c.id === nodeId);
-              let target: MindNode | undefined;
-              if (e.key === 'ArrowUp') {
-                  if (idx > 0) target = parent.children[idx - 1];
-              } else {
-                  if (idx < parent.children.length - 1) target = parent.children[idx + 1];
-              }
-              if (target) {
-                  setEditingId(target.id);
-                  onViewStateChange({...viewState, focusedNodeId: target.id});
+          const currentNodeLayout = layoutCache.current.find(d => d.data.id === nodeId);
+          if (!currentNodeLayout) return;
+
+          const isUp = e.key === 'ArrowUp';
+          
+          // Find all potential candidates in the desired direction
+          const candidates = layoutCache.current.filter(d => {
+              if (d.data.id === nodeId) return false; // Exclude self
+              // d.x is vertical position in D3 tree layout
+              return isUp ? d.x < currentNodeLayout.x : d.x > currentNodeLayout.x;
+          });
+
+          if (candidates.length > 0) {
+              let closestNode: any = null;
+              let minDistanceSq = Infinity;
+
+              // Find the geometrically closest node among the candidates
+              candidates.forEach(d => {
+                  const dx = d.y - currentNodeLayout.y; // Horizontal distance
+                  const dy = d.x - currentNodeLayout.x; // Vertical distance
+                  const distanceSq = dx * dx + dy * dy; // Using squared distance is faster
+
+                  if (distanceSq < minDistanceSq) {
+                      minDistanceSq = distanceSq;
+                      closestNode = d;
+                  }
+              });
+
+              if (closestNode) {
+                  setEditingId(closestNode.data.id);
+                  onViewStateChange({ ...viewState, focusedNodeId: closestNode.data.id });
               }
           }
       } else if (e.key === 'ArrowLeft') {
