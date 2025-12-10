@@ -1,0 +1,22 @@
+# 这是注释行
+
+# 忽略特定文件
+package-lock.json
+
+# 忽略特定目录
+build/
+dist/
+node_modules/
+
+# 使用通配符忽略文件类型
+*.log
+*.tmp
+*.cache
+
+# 使用路径匹配
+/root-only-file.txt
+src/**/*.test.js
+
+# 否定规则（不忽略）
+*.log
+!important.log

@@ -72,12 +72,6 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   // Key press tracking for double-tap detection
   const lastKeyRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
 
-  // Ref to hold the latest viewState to avoid stale closures in d3 callbacks
-  const viewStateRef = useRef(viewState);
-  useEffect(() => {
-      viewStateRef.current = viewState;
-  }, [viewState]);
-
   useEffect(() => {
       if (data.id !== internalData.id) {
           setInternalDataSilent(data);
@@ -142,10 +136,11 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
       // 只有在非框选状态下才更新 viewState，避免重渲染性能问题
       if (!isSelecting && event.sourceEvent) {
          onViewStateChange({
-          ...viewStateRef.current, // Use the latest state from the ref
+          ...viewState,
           x: event.transform.x,
           y: event.transform.y,
           k: event.transform.k,
+          focusedNodeId: editingId 
         });
       }
     };
@@ -463,7 +458,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   };
 
   const batchDelete = () => {
-      const idsToDelete: string[] = Array.from(selectedIds);
+      const idsToDelete = Array.from(selectedIds);
       if (idsToDelete.includes(internalData.id)) {
           // Cannot delete root
           idsToDelete.splice(idsToDelete.indexOf(internalData.id), 1);
