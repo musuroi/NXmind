@@ -2,30 +2,30 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import { MindNode, ViewState } from '../types';
 import { useHistory } from '../utils/useHistory';
-import { generateId, findNodeById, findParentNode, moveNode, moveNodes, isDescendant } from '../utils/helpers';
+import { generateId, findNodeById, findParentNode, moveNode, moveNodes, isDescendant, copyNode, noteToMarkdown } from '../utils/helpers';
 
 interface DropTargetState {
-  nodeId: string;
-  position: 'inside' | 'prev' | 'next';
+    nodeId: string;
+    position: 'inside' | 'prev' | 'next';
 }
 
 interface SelectionRect {
-  startX: number;
-  startY: number;
-  currentX: number;
-  currentY: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
 }
 
 // Helper: 根据鼠标在节点中的位置计算逻辑位置
 const getDropPosition = (e: React.DragEvent, isRoot: boolean): 'inside' | 'prev' | 'next' => {
-  if (isRoot) return 'inside';
-  const rect = e.currentTarget.getBoundingClientRect();
-  const offsetY = e.clientY - rect.top;
-  const height = rect.height;
+    if (isRoot) return 'inside';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const height = rect.height;
 
-  if (offsetY < height * 0.25) return 'prev';
-  if (offsetY > height * 0.75) return 'next';
-  return 'inside';
+    if (offsetY < height * 0.25) return 'prev';
+    if (offsetY > height * 0.75) return 'next';
+    return 'inside';
 };
 
 
@@ -73,7 +73,7 @@ export const useMindMapInteraction = ({
     // Drag & Drop State
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
     const [dropTarget, setDropTarget] = useState<DropTargetState | null>(null);
-    
+
     // Key press tracking for double-tap detection
     const lastKeyRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
 
@@ -90,11 +90,11 @@ export const useMindMapInteraction = ({
             setSelectedIds(new Set([viewState.focusedNodeId]));
         }
     }, [viewState.focusedNodeId]);
-    
+
     useEffect(() => {
-       autoPan(editingId);
+        autoPan(editingId);
     }, [editingId, autoPan]);
-    
+
     // 当撤销/重做导致 internalData 变化时，通知父组件保存
     useEffect(() => {
         onChange(internalData);
@@ -102,7 +102,7 @@ export const useMindMapInteraction = ({
 
 
     // --- Data Mutation Handlers ---
-  
+
     const handleTextChange = (id: string, newText: string) => {
         const updateText = (node: MindNode): MindNode => {
             if (node.id === id) return { ...node, text: newText };
@@ -205,7 +205,7 @@ export const useMindMapInteraction = ({
         }
     }, [selectedIds, internalData, setInternalDataWithHistory, onViewStateChange, viewState]);
 
-    
+
     // --- Shortcuts & Global Handlers ---
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -250,15 +250,15 @@ export const useMindMapInteraction = ({
         window.addEventListener('keydown', handleGlobalKey);
         return () => window.removeEventListener('keydown', handleGlobalKey);
     }, [isActive, isSelecting, centerView]);
-    
-    
+
+
     // --- Node Input Handlers ---
     const handleInputKeyDown = (e: React.KeyboardEvent, nodeId: string) => {
         e.stopPropagation();
-        
+
         const now = Date.now();
         const DOUBLE_TAP_DELAY = 300;
-        
+
         const isDoubleTap = (key: string) => {
             const isDt = lastKeyRef.current &&
                 lastKeyRef.current.key === key &&
@@ -266,6 +266,57 @@ export const useMindMapInteraction = ({
             lastKeyRef.current = { key, time: now };
             return isDt;
         };
+
+        // Unified Undo: Ctrl+Z triggers global undo, preventing browser native text undo
+        if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) redo();
+            else undo();
+            return;
+        }
+
+        // Copy: Ctrl+C
+        if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+            const input = e.currentTarget as HTMLInputElement;
+            const hasSelection = input.selectionStart !== input.selectionEnd;
+
+            if (selectedIds.size > 1) {
+                e.preventDefault();
+                // User manual fix using noteToMarkdown was incorrect (wrong args).
+                // Implementing filtering logic here to support Multi-Node -> Markdown copy
+                const ids = Array.from(selectedIds);
+                const nodesMap = new Map<string, MindNode>();
+                ids.forEach(id => {
+                    const node = findNodeById(internalData, id);
+                    if (node) nodesMap.set(id, node);
+                });
+
+                const topLevelNodes: MindNode[] = [];
+                nodesMap.forEach((node, id) => {
+                    let isChildOfSelection = false;
+                    let curr = findParentNode(internalData, id);
+                    while (curr) {
+                        if (selectedIds.has(curr.id)) {
+                            isChildOfSelection = true;
+                            break;
+                        }
+                        curr = findParentNode(internalData, curr.id);
+                        if (curr?.id === internalData.id) break;
+                    }
+                    if (!isChildOfSelection) topLevelNodes.push(node);
+                });
+
+                const md = topLevelNodes.map(n => noteToMarkdown(n)).join('\n');
+                navigator.clipboard.writeText(md);
+            } else if (!hasSelection) {
+                e.preventDefault();
+                const node = findNodeById(internalData, nodeId);
+                if (node) {
+                    navigator.clipboard.writeText(node.text);
+                }
+            }
+            return;
+        }
 
         if (e.altKey && e.key === 'Enter') {
             e.preventDefault();
@@ -280,6 +331,25 @@ export const useMindMapInteraction = ({
         } else if (e.key === 'Escape') {
             (e.target as HTMLInputElement).blur();
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            // Empty node double tap delete
+            if (e.key === 'Backspace') {
+                const input = e.target as HTMLInputElement;
+                if (input.value === '') {
+                    if (isDoubleTap('BackspaceEmpty')) {
+                        e.preventDefault();
+                        const parent = findParentNode(internalData, nodeId);
+                        let nextFocusId: string | undefined;
+                        if (parent) {
+                            const idx = parent.children.findIndex(c => c.id === nodeId);
+                            if (idx > 0) nextFocusId = parent.children[idx - 1].id;
+                            else nextFocusId = parent.id;
+                        }
+                        deleteNode(nodeId, nextFocusId);
+                        return;
+                    }
+                }
+            }
+
             if (e.key === 'Delete') {
                 e.preventDefault();
                 const parent = findParentNode(internalData, nodeId);
@@ -300,7 +370,7 @@ export const useMindMapInteraction = ({
             if (!currentNodeLayout) return;
 
             const isUp = e.key === 'ArrowUp';
-            
+
             const candidates = layoutCache.current.filter(d => {
                 if (d.data.id === nodeId) return false;
                 return isUp ? d.x < currentNodeLayout.x : d.x > currentNodeLayout.x;
@@ -357,7 +427,11 @@ export const useMindMapInteraction = ({
             }
         }
     };
-    
+
+    const handleInputDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
+        e.currentTarget.select();
+    };
+
     const handleInputSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
         const input = e.currentTarget;
         if (input.selectionStart === 0 && input.selectionEnd === 0) {
@@ -432,13 +506,55 @@ export const useMindMapInteraction = ({
         const isMultiDrag = selectedIds.size > 1;
         const pos = isMultiDrag ? 'inside' : getDropPosition(e, isRoot);
 
+        const isCopy = e.ctrlKey || e.metaKey;
+
         if (isMultiDrag) {
-            const newData = moveNodes(internalData, Array.from(selectedIds), targetId);
-            setInternalDataWithHistory(newData);
+            if (isCopy) {
+                // Multi-node Copy
+                // For simplicity, we clone each selected node and add to target
+                // We must handle "Top Level Rules" to avoid duplication if parent+child selected
+                // Luckily moveNodes logic uses similar filtering, but copyNode is single.
+                // We'll reimplement safe copy loop here using getTopLevelNodes logic (conceptually).
+
+                // Note: We can't import getTopLevelNodes if it's not exported or reuse logic easily without helper.
+                // I'll trust `noteToMarkdown` helper has `getTopLevelNodes`.
+                // For now, let's just use a simple loop over selectedIds, but we should strictly use `moveNodes` style logic.
+                // Actually, `moveNodes` does a remove-then-insert. Copy is just insert clones.
+                // Let's iterate selectedIds, filter out those whose parents are also in selectedIds.
+
+                const ids = Array.from(selectedIds);
+                const topLevelIds = ids.filter(id => {
+                    // check if any ancestor is in ids
+                    let curr = findParentNode(internalData, id);
+                    while (curr) {
+                        if (ids.includes(curr.id)) return false;
+                        curr = findParentNode(internalData, curr.id);
+                        if (curr?.id === internalData.id) break;
+                    }
+                    return true;
+                });
+
+                let currentData = internalData;
+                topLevelIds.forEach(id => {
+                    currentData = copyNode(currentData, id, targetId, pos === 'inside' ? 'inside' : 'next'); // Approximate position
+                    // Note: 'pos' applies to the drop target. If we drop multiple, where do they go?
+                    // Usually appended.
+                });
+                setInternalDataWithHistory(currentData);
+
+            } else {
+                const newData = moveNodes(internalData, Array.from(selectedIds), targetId);
+                setInternalDataWithHistory(newData);
+            }
         } else if (draggedNodeId && draggedNodeId !== targetId) {
             if (!isDescendant(internalData, targetId, draggedNodeId)) {
-                const newData = moveNode(internalData, draggedNodeId, targetId, pos);
-                setInternalDataWithHistory(newData);
+                if (isCopy) {
+                    const newData = copyNode(internalData, draggedNodeId, targetId, pos);
+                    setInternalDataWithHistory(newData);
+                } else {
+                    const newData = moveNode(internalData, draggedNodeId, targetId, pos);
+                    setInternalDataWithHistory(newData);
+                }
             }
         }
         setDraggedNodeId(null);
@@ -457,7 +573,7 @@ export const useMindMapInteraction = ({
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
-        
+
         const { x, y } = getLocalPoint(e);
 
         setIsSelecting(true);
@@ -475,7 +591,7 @@ export const useMindMapInteraction = ({
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
         if (!isSelecting || !selectionRect) return;
-        
+
         const { x: currentX, y: currentY } = getLocalPoint(e);
 
         setSelectionRect(prev => prev ? ({ ...prev, currentX, currentY }) : null);
@@ -493,7 +609,7 @@ export const useMindMapInteraction = ({
             const nodeY = d.x - 40;
             const nodeW = d.width + 20;
             const nodeH = 80;
-            
+
             const screenX = transform.applyX(nodeX);
             const screenY = transform.applyY(nodeY);
             const screenW = nodeW * transform.k;
@@ -508,7 +624,7 @@ export const useMindMapInteraction = ({
                 newSelected.add(d.data.id);
             }
         });
-        
+
         setSelectedIds(newSelected);
 
     }, [isSelecting, selectionRect, svgRef, layoutCache]);
@@ -527,11 +643,12 @@ export const useMindMapInteraction = ({
         selectionRect,
         draggedNodeId,
         dropTarget,
-        
+
         // Handlers
         handleTextChange,
         handleTextBlur,
         handleInputKeyDown,
+        handleInputDoubleClick,
         handleInputSelect,
         handleNodeClick,
         handleDragStart,

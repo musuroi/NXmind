@@ -19,11 +19,11 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const layoutCache = useRef<any[]>([]);
-  
-  const { 
-    layoutNodes, 
-    centerView, 
-    autoPan 
+
+  const {
+    layoutNodes,
+    centerView,
+    autoPan
   } = useMindMapLayout({
     internalData: data, // Interaction hook will manage the state, layout just needs data
     svgRef,
@@ -38,7 +38,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
   useEffect(() => {
     layoutCache.current = layoutNodes;
   }, [layoutNodes]);
-  
+
   const {
     internalData,
     editingId,
@@ -60,6 +60,8 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+
+
   } = useMindMapInteraction({
     data,
     viewState,
@@ -72,7 +74,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
     svgRef,
     layoutCache,
   });
-  
+
   // Recalculate layout based on the state from the interaction hook
   const { layoutNodes: currentLayoutNodes } = useMindMapLayout({
     internalData, // Use the state managed by the interaction hook
@@ -83,7 +85,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
     isSelecting, // Pass the actual isSelecting state
     onViewStateChange,
   });
-  
+
   // --- Initial Centering ---
   useEffect(() => {
     if (viewState.needsCentering) {
@@ -193,7 +195,7 @@ const MindMap: React.FC<MindMapProps> = ({ data, viewState, theme, onChange, onV
           })}
         </g>
       </svg>
-      
+
       {isSelecting && selectionRect && (
         <div
           className="absolute bg-sky-500/20 border border-sky-400 z-50 pointer-events-none"
