@@ -356,3 +356,46 @@ export const moveNodes = (
 
   return insertFinal(rootCleaned);
 };
+
+// 复制节点逻辑 (单个，但包含所有子节点)
+export const copyNode = (
+  root: MindNode,
+  sourceId: string,
+  targetId: string,
+  position: 'inside' | 'prev' | 'next'
+): MindNode => {
+  if (sourceId === targetId) return root; // 不能复制到自身
+
+  // 1. 查找源节点数据
+  const sourceNode = findNodeById(root, sourceId);
+  if (!sourceNode) return root;
+
+  // 2. 深度复制源节点，并为每个节点生成新 ID
+  const cloneWithNewIds = (node: MindNode): MindNode => ({
+    ...node,
+    id: generateId(),
+    children: node.children.map(cloneWithNewIds),
+  });
+
+  const copiedNode = cloneWithNewIds(sourceNode);
+
+  // 3. 将复制的节点插入到新位置
+  const insert = (node: MindNode): MindNode => {
+    if (position === 'inside') {
+      if (node.id === targetId) {
+        return { ...node, children: [...node.children, copiedNode] };
+      }
+    } else {
+      const idx = node.children.findIndex(c => c.id === targetId);
+      if (idx !== -1) {
+        const newChildren = [...node.children];
+        const insertIndex = position === 'prev' ? idx : idx + 1;
+        newChildren.splice(insertIndex, 0, copiedNode);
+        return { ...node, children: newChildren };
+      }
+    }
+    return { ...node, children: node.children.map(insert) };
+  };
+
+  return insert(root);
+};

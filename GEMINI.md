@@ -12,8 +12,9 @@ Mindflow 是一个基于 Web 的现代化思维导图与便签应用。它结合
 - **AI 能力**: @google/genai (目前已安装依赖，待集成)
 
 ## 3. 开发环境设置
+系统：Windows 11
 ### 启动项目
-```bash
+```pwsh
 npm install
 npm run dev
 ```
@@ -39,6 +40,12 @@ GEMINI_API_KEY=your_api_key_here
   - **混合渲染模式**: 使用 D3.js 计算树布局 (`d3.tree`) 和处理缩放/平移 (`d3.zoom`)，但节点渲染使用 React 的 `<foreignObject>` 以支持 HTML 输入控件和 Tailwind 样式。
   - **交互**: 支持框选 (Box Selection)、拖拽节点 (Drag & Drop)、快捷键 (Tab 新增子节点, Enter 新增兄弟节点, Delete 删除)。
   - **历史记录**: 使用 `useHistory` hook 实现撤销/重做。
+new：  
+现在 mindmap.tsx 拆分成了三个文件：
+.\components\useMindMapLayout.ts：处理 D3 布局和视图控制。
+.\components\useMindMapInteraction.ts：处理用户交互和数据变更。
+.\components\MindMap.tsx：作为主组件，负责集成 Hooks 和渲染 UI。
+
 - **`components/Dock.tsx`**: 底部/右侧导航栏。
   - 模仿 macOS Dock 效果 (放大动画)。
   - 支持便签切换、拖拽排序、右键菜单 (置顶、下载、复制、删除)。
@@ -80,6 +87,4 @@ interface Note {
     - 避免直接操作 DOM，除非是 D3 必须的 `select(ref).call(...)`。
 4.  **样式**: 优先使用 Tailwind CSS 类名。涉及动态颜色计算时（如根据主题变化的边框），使用 `style` 属性。
 
-## 7. 待办事项 / 已知问题
-- AI 功能尚未集成 (GEMINI_API_KEY 已就绪)。
-- 移动端适配待优化（目前主要针对桌面端）。
+
