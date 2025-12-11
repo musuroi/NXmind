@@ -69,13 +69,25 @@ export const useMindMapInteraction = ({
 
     // Wrap undo/redo to sync the committed state ref
     const undo = useCallback(() => {
+        console.log('[Interaction] undo called');
+        // Critical Fix: Clear any pending debounced save to prevent "ghost" overwrites after undo
+        if (saveTimeoutRef.current) {
+            console.log('[Interaction] Clearing pending save on undo');
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+            isTransientRef.current = false;
+        }
         originalUndo();
-        // We can't easily access the *new* state here synchronously without effect?
-        // Actually, internalData will update in next render.
-        // We'll update ref in useEffect.
     }, [originalUndo]);
 
     const redo = useCallback(() => {
+        console.log('[Interaction] redo called');
+        // Critical Fix: Clear any pending debounced save
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+            isTransientRef.current = false;
+        }
         originalRedo();
     }, [originalRedo]);
 
@@ -141,6 +153,15 @@ export const useMindMapInteraction = ({
 
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Cancel any pending text save (avoids "Ghost Updates" reviving deleted nodes)
+    const cancelPendingTextSave = useCallback(() => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+        isTransientRef.current = false;
+    }, []);
+
     const handleTextChange = (id: string, newText: string) => {
         isTransientRef.current = true; // Mark as transient
 
@@ -156,7 +177,7 @@ export const useMindMapInteraction = ({
         saveTimeoutRef.current = setTimeout(() => {
             // Commit!
             if (lastCommittedData.current !== newData) {
-                pushStateManual(newData, lastCommittedData.current);
+                pushStateManual(newData, lastCommittedData.current, 'Update Node Text');
                 lastCommittedData.current = newData;
                 isTransientRef.current = false; // Commit complete
             }
@@ -171,13 +192,14 @@ export const useMindMapInteraction = ({
         }
         // Force commit on blur if changed
         if (internalData !== lastCommittedData.current) {
-            pushStateManual(internalData, lastCommittedData.current);
+            pushStateManual(internalData, lastCommittedData.current, 'Update Node Text (Blur)');
             lastCommittedData.current = internalData;
         }
         isTransientRef.current = false;
     };
 
     const addChild = (parentId: string) => {
+        cancelPendingTextSave(); // Ensure no pending text updates interfere
         const newId = generateId();
         const newNode: MindNode = { id: newId, text: '', children: [] };
         const addToNode = (node: MindNode): MindNode => {
@@ -185,7 +207,7 @@ export const useMindMapInteraction = ({
             return { ...node, children: node.children.map(addToNode) };
         };
         const newData = addToNode(internalData);
-        setInternalDataWithHistory(newData);
+        setInternalDataWithHistory(newData, 'Add Child Node');
         setEditingId(newId);
         setSelectedIds(new Set([newId]));
         onViewStateChange({ ...viewState, focusedNodeId: newId });
@@ -193,6 +215,7 @@ export const useMindMapInteraction = ({
 
     const addSibling = (currentId: string) => {
         if (currentId === internalData.id) return;
+        cancelPendingTextSave(); // Ensure no pending text updates interfere
         const newId = generateId();
         const newNode: MindNode = { id: newId, text: '', children: [] };
         const addSib = (node: MindNode): MindNode => {
@@ -205,7 +228,7 @@ export const useMindMapInteraction = ({
             return { ...node, children: node.children.map(addSib) };
         };
         const newData = addSib(internalData);
-        setInternalDataWithHistory(newData);
+        setInternalDataWithHistory(newData, 'Add Sibling Node');
         setEditingId(newId);
         setSelectedIds(new Set([newId]));
         onViewStateChange({ ...viewState, focusedNodeId: newId });
@@ -213,6 +236,9 @@ export const useMindMapInteraction = ({
 
     const deleteNode = (id: string, nextFocusId?: string) => {
         if (id === internalData.id) return;
+
+        cancelPendingTextSave(); // CRITICAL: Stop any pending text saves for the node being deleted
+
         let parentId: string | null = null;
         const remove = (node: MindNode): MindNode => {
             if (node.children.some(c => c.id === id)) {
@@ -222,7 +248,7 @@ export const useMindMapInteraction = ({
             return { ...node, children: node.children.map(remove) };
         };
         const newData = remove(internalData);
-        setInternalDataWithHistory(newData);
+        setInternalDataWithHistory(newData, 'Delete Node');
 
         const targetId = nextFocusId || parentId;
         if (targetId) {
@@ -233,6 +259,8 @@ export const useMindMapInteraction = ({
     };
 
     const batchDelete = useCallback(() => {
+        cancelPendingTextSave(); // CRITICAL: Stop pending saves
+
         const idsToDelete: string[] = Array.from(selectedIds);
         if (idsToDelete.includes(internalData.id)) {
             idsToDelete.splice(idsToDelete.indexOf(internalData.id), 1);
@@ -256,7 +284,7 @@ export const useMindMapInteraction = ({
         };
 
         const newData = removeRecursive(internalData);
-        setInternalDataWithHistory(newData);
+        setInternalDataWithHistory(newData, 'Batch Delete Nodes');
         setSelectedIds(new Set());
 
         if (fallbackId && findNodeById(newData, fallbackId)) {
@@ -265,7 +293,7 @@ export const useMindMapInteraction = ({
         } else {
             setEditingId(null);
         }
-    }, [selectedIds, internalData, setInternalDataWithHistory, onViewStateChange, viewState]);
+    }, [selectedIds, internalData, setInternalDataWithHistory, onViewStateChange, viewState, cancelPendingTextSave]);
 
 
     // --- Shortcuts & Global Handlers ---
@@ -292,9 +320,11 @@ export const useMindMapInteraction = ({
                 }
             } else if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
                 // Global Copy (Multi-select)
-                if (selectedIds.size > 1) {
+                // Fix: Also handle single selection if box-selected (size >= 1)
+                // Fix: Only copy what is explicitly selected (strict)
+                if (selectedIds.size >= 1) {
                     e.preventDefault();
-                    // Multi-Node -> Markdown copy
+
                     const ids = Array.from(selectedIds);
                     const nodesMap = new Map<string, MindNode>();
                     ids.forEach(id => {
@@ -302,6 +332,7 @@ export const useMindMapInteraction = ({
                         if (node) nodesMap.set(id, node);
                     });
 
+                    // 1. Identify Top-Level Nodes within the selection
                     const topLevelNodes: MindNode[] = [];
                     nodesMap.forEach((node, id) => {
                         let isChildOfSelection = false;
@@ -317,7 +348,26 @@ export const useMindMapInteraction = ({
                         if (!isChildOfSelection) topLevelNodes.push(node);
                     });
 
-                    const md = topLevelNodes.map(n => noteToMarkdown(n)).join('\n');
+                    // 2. Serialize Helper (Strict)
+                    // Only recurse if child is in selectedIds
+                    const serializeNode = (node: MindNode, depth: number = 0): string => {
+                        const indent = '  '.repeat(depth);
+                        const prefix = '- ';
+                        let md = `${indent}${prefix}${node.text}`;
+
+                        if (node.children && node.children.length > 0) {
+                            const childMd = node.children
+                                .filter(child => selectedIds.has(child.id)) // Strict Check
+                                .map(child => serializeNode(child, depth + 1))
+                                .join('\n');
+                            if (childMd) {
+                                md += '\n' + childMd;
+                            }
+                        }
+                        return md;
+                    };
+
+                    const md = topLevelNodes.map(n => serializeNode(n)).join('\n');
                     navigator.clipboard.writeText(md);
                 }
             }
@@ -605,20 +655,20 @@ export const useMindMapInteraction = ({
                     // Note: 'pos' applies to the drop target. If we drop multiple, where do they go?
                     // Usually appended.
                 });
-                setInternalDataWithHistory(currentData);
+                setInternalDataWithHistory(currentData, 'Paste/Copy Nodes');
 
             } else {
                 const newData = moveNodes(internalData, Array.from(selectedIds), targetId);
-                setInternalDataWithHistory(newData);
+                setInternalDataWithHistory(newData, 'Move Nodes');
             }
         } else if (draggedNodeId && draggedNodeId !== targetId) {
             if (!isDescendant(internalData, targetId, draggedNodeId)) {
                 if (isCopy) {
                     const newData = copyNode(internalData, draggedNodeId, targetId, pos);
-                    setInternalDataWithHistory(newData);
+                    setInternalDataWithHistory(newData, 'Copy Node');
                 } else {
                     const newData = moveNode(internalData, draggedNodeId, targetId, pos);
-                    setInternalDataWithHistory(newData);
+                    setInternalDataWithHistory(newData, 'Move Node');
                 }
             }
         }
