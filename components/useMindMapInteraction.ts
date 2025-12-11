@@ -59,9 +59,45 @@ export const useMindMapInteraction = ({
         state: internalData,
         set: setInternalDataWithHistory,
         setSilent: setInternalDataSilent,
-        undo,
-        redo
+        pushStateManual,
+        undo: originalUndo,
+        redo: originalRedo
     } = useHistory<MindNode>(data);
+
+    // Track the last "Committed" history state (to restore proper past when creating new history entry)
+    const lastCommittedData = useRef<MindNode>(data);
+
+    // Wrap undo/redo to sync the committed state ref
+    const undo = useCallback(() => {
+        originalUndo();
+        // We can't easily access the *new* state here synchronously without effect?
+        // Actually, internalData will update in next render.
+        // We'll update ref in useEffect.
+    }, [originalUndo]);
+
+    const redo = useCallback(() => {
+        originalRedo();
+    }, [originalRedo]);
+
+    // Update ref when internalData changes (but only if it's NOT a transient update?)
+    // This is tricky. simpler:
+    // Only update ref when we MANUALLY commit or when we detect an external change (undo/redo).
+    // We can detect external change by checking if `internalData` changed but NOT via our handlers?
+    // Let's rely on explicit updates to the ref where possible.
+    // For Undo/Redo, since `internalData` changes abruptly, we should sync the ref in a useEffect.
+
+    // BUT wait, if we are in "Transient Mode" (typing), internalData is changing silently.
+    // Ideally, `lastCommittedData` should stick to the OLD state until we commit.
+    // If we undo, we want `lastCommittedData` to jump to the restored state.
+
+    // Solution: A flag isTransient?
+    const isTransientRef = useRef(false);
+
+    useEffect(() => {
+        if (!isTransientRef.current) {
+            lastCommittedData.current = internalData;
+        }
+    }, [internalData]);
 
     const [editingId, setEditingId] = useState<string | null>(viewState.focusedNodeId);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -103,16 +139,42 @@ export const useMindMapInteraction = ({
 
     // --- Data Mutation Handlers ---
 
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const handleTextChange = (id: string, newText: string) => {
+        isTransientRef.current = true; // Mark as transient
+
         const updateText = (node: MindNode): MindNode => {
             if (node.id === id) return { ...node, text: newText };
             return { ...node, children: node.children.map(updateText) };
         };
-        setInternalDataSilent(updateText(internalData));
+        const newData = updateText(internalData);
+        setInternalDataSilent(newData);
+
+        // Debounce history save (granular text undo)
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+            // Commit!
+            if (lastCommittedData.current !== newData) {
+                pushStateManual(newData, lastCommittedData.current);
+                lastCommittedData.current = newData;
+                isTransientRef.current = false; // Commit complete
+            }
+            saveTimeoutRef.current = null;
+        }, 800);
     };
 
     const handleTextBlur = () => {
-        setInternalDataWithHistory(internalData);
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+        // Force commit on blur if changed
+        if (internalData !== lastCommittedData.current) {
+            pushStateManual(internalData, lastCommittedData.current);
+            lastCommittedData.current = internalData;
+        }
+        isTransientRef.current = false;
     };
 
     const addChild = (parentId: string) => {
@@ -228,11 +290,41 @@ export const useMindMapInteraction = ({
                     e.preventDefault();
                     batchDelete();
                 }
+            } else if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+                // Global Copy (Multi-select)
+                if (selectedIds.size > 1) {
+                    e.preventDefault();
+                    // Multi-Node -> Markdown copy
+                    const ids = Array.from(selectedIds);
+                    const nodesMap = new Map<string, MindNode>();
+                    ids.forEach(id => {
+                        const node = findNodeById(internalData, id);
+                        if (node) nodesMap.set(id, node);
+                    });
+
+                    const topLevelNodes: MindNode[] = [];
+                    nodesMap.forEach((node, id) => {
+                        let isChildOfSelection = false;
+                        let curr = findParentNode(internalData, id);
+                        while (curr) {
+                            if (selectedIds.has(curr.id)) {
+                                isChildOfSelection = true;
+                                break;
+                            }
+                            curr = findParentNode(internalData, curr.id);
+                            if (curr?.id === internalData.id) break;
+                        }
+                        if (!isChildOfSelection) topLevelNodes.push(node);
+                    });
+
+                    const md = topLevelNodes.map(n => noteToMarkdown(n)).join('\n');
+                    navigator.clipboard.writeText(md);
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isActive, undo, redo, selectedIds, batchDelete]);
+    }, [isActive, undo, redo, selectedIds, batchDelete, internalData]);
 
     useEffect(() => {
         const handleGlobalKey = (e: KeyboardEvent) => {
@@ -275,40 +367,13 @@ export const useMindMapInteraction = ({
             return;
         }
 
-        // Copy: Ctrl+C
+        // Copy: Ctrl+C (Single Node / Text Selection)
         if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
             const input = e.currentTarget as HTMLInputElement;
             const hasSelection = input.selectionStart !== input.selectionEnd;
 
-            if (selectedIds.size > 1) {
-                e.preventDefault();
-                // User manual fix using noteToMarkdown was incorrect (wrong args).
-                // Implementing filtering logic here to support Multi-Node -> Markdown copy
-                const ids = Array.from(selectedIds);
-                const nodesMap = new Map<string, MindNode>();
-                ids.forEach(id => {
-                    const node = findNodeById(internalData, id);
-                    if (node) nodesMap.set(id, node);
-                });
-
-                const topLevelNodes: MindNode[] = [];
-                nodesMap.forEach((node, id) => {
-                    let isChildOfSelection = false;
-                    let curr = findParentNode(internalData, id);
-                    while (curr) {
-                        if (selectedIds.has(curr.id)) {
-                            isChildOfSelection = true;
-                            break;
-                        }
-                        curr = findParentNode(internalData, curr.id);
-                        if (curr?.id === internalData.id) break;
-                    }
-                    if (!isChildOfSelection) topLevelNodes.push(node);
-                });
-
-                const md = topLevelNodes.map(n => noteToMarkdown(n)).join('\n');
-                navigator.clipboard.writeText(md);
-            } else if (!hasSelection) {
+            // Note: Multi-select copy is handled by global listener because inputs are disabled
+            if (selectedIds.size <= 1 && !hasSelection) {
                 e.preventDefault();
                 const node = findNodeById(internalData, nodeId);
                 if (node) {

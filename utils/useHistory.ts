@@ -58,18 +58,28 @@ export function useHistory<T>(initialPresent: T) {
     });
   }, []);
 
+  // 手动添加历史记录 (允许指定 pastSnapshot，用于防抖或静默更新后的提交)
+  const pushStateManual = useCallback((newPresent: T, pastSnapshot: T) => {
+    setState(currentState => ({
+      past: [...currentState.past, pastSnapshot],
+      present: newPresent,
+      future: []
+    }));
+  }, []);
+
   // 静默更新 (不添加到历史，用于初始化或外部同步)
   const setSilent = useCallback((newPresent: T) => {
-      setState(currentState => ({
-          ...currentState,
-          present: newPresent
-      }));
+    setState(currentState => ({
+      ...currentState,
+      present: newPresent
+    }));
   }, []);
 
   return {
     state: state.present,
     set,
     setSilent,
+    pushStateManual,
     undo,
     redo,
     canUndo,
