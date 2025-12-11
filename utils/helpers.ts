@@ -51,10 +51,10 @@ export const THEMES: Record<ThemeId, Theme> = {
   dawn: {
     id: 'dawn',
     name: '晨曦',
-    background: '#fdfbf7', // 暖白
+    background: '#fef6e4', // 暖白
     lineColor: '#d6d3d1',  // 默认占位，实际会动态计算
     // 根 -> L1 -> L2 -> L3 -> L4 (循环)
-    nodeColors: ['#fecaca', '#fed7aa', '#fde68a', '#bbf7d0', '#bfdbfe'], // 柔和糖果色
+    nodeColors: ['#f582ae', '#9DC5BB', '#17B890', '#5E807F', '#082D0F'], // 柔和糖果色
     textColor: '#1e293b', 
     buttonColor: '#f87171' // Red-400
   },
@@ -74,17 +74,17 @@ export const THEMES: Record<ThemeId, Theme> = {
     background: '#4a1d1d', // 深红褐
     lineColor: '#7f1d1d',
     // 晚霞色系
-    nodeColors: ['#fb923c', '#f87171', '#c084fc', '#f472b6', '#fbbf24'], 
+    nodeColors: ['#fb923c', '#D5695B', '#c084fc', '#f472b6', '#fbbf24'], 
     textColor: '#fff7ed',
     buttonColor: '#fb923c'
   },
   night: {
     id: 'night',
     name: '深夜',
-    background: '#0f172a', // slate-900
+    background: '#16161a', // slate-900
     lineColor: '#334155',
     // 赛博朋克深色系
-    nodeColors: ['#1e3a8a', '#4c1d95', '#be185d', '#b91c1c', '#0f766e'], // 深沉的宝石色
+    nodeColors: ['#1e3a8a', '#7f5af0', '#be185d', '#7A2026', '#0f766e'], // 深沉的宝石色
     textColor: '#e5e5e5',
     buttonColor: '#6366f1'
   },
