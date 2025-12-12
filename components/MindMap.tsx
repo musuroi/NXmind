@@ -21,35 +21,35 @@ const HELP_STORAGE_KEY = 'mindflow_help_open';
 
 // We use forwardRef to expose internal state control (like closing help) to parent if needed
 export interface MindMapHandle {
-    setHelpOpen: (open: boolean) => void;
-    centerView: (id?: string | null, clearFocus?: boolean, preserveScale?: boolean, x?: number, y?: number) => void;
+  setHelpOpen: (open: boolean) => void;
+  centerView: (id?: string | null, clearFocus?: boolean, preserveScale?: boolean, x?: number, y?: number) => void;
 }
 
 const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, theme, onChange, onViewStateChange, isActive, onHelpToggle }, ref) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const layoutCache = useRef<any[]>([]);
-  
+
   // Help Module State (Persistent)
   const [isHelpOpen, setIsHelpOpen] = useState(() => {
-      try {
-          return localStorage.getItem(HELP_STORAGE_KEY) === 'true';
-      } catch {
-          return false;
-      }
+    try {
+      return localStorage.getItem(HELP_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
   });
 
   // Notify parent on help state change
   useEffect(() => {
-      onHelpToggle?.(isHelpOpen);
+    onHelpToggle?.(isHelpOpen);
   }, [isHelpOpen, onHelpToggle]);
 
   const toggleHelp = () => {
-      setIsHelpOpen(prev => {
-          const newState = !prev;
-          localStorage.setItem(HELP_STORAGE_KEY, String(newState));
-          return newState;
-      });
+    setIsHelpOpen(prev => {
+      const newState = !prev;
+      localStorage.setItem(HELP_STORAGE_KEY, String(newState));
+      return newState;
+    });
   };
 
   const {
@@ -57,21 +57,21 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
     centerView,
     autoPan
   } = useMindMapLayout({
-    internalData: data, 
+    internalData: data,
     svgRef,
     wrapperRef,
     viewState,
     theme,
-    isSelecting: false, 
+    isSelecting: false,
     onViewStateChange,
   });
 
   useImperativeHandle(ref, () => ({
-      setHelpOpen: (open: boolean) => {
-          setIsHelpOpen(open);
-          localStorage.setItem(HELP_STORAGE_KEY, String(open));
-      },
-      centerView
+    setHelpOpen: (open: boolean) => {
+      setIsHelpOpen(open);
+      localStorage.setItem(HELP_STORAGE_KEY, String(open));
+    },
+    centerView
   }));
 
   // Update layout cache when nodes change
@@ -129,18 +129,18 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
   // --- Initial Centering ---
   useEffect(() => {
     if (viewState.needsCentering) {
-       // Small delay to ensure D3/DOM is ready on first mount
-       const timer = setTimeout(() => {
-           // If it is Tree mode (portrait), we center at top left (offset) to avoid create button
-           if (viewState.layout === 'tree') {
-               // Create button is at top: 24px + 24px + padding -> approx 80px.
-               // Let's position root at (100, 100) on screen.
-               centerView(viewState.focusedNodeId, false, false, 120, 120);
-           } else {
-               centerView(viewState.focusedNodeId, false);
-           }
-       }, 50);
-       return () => clearTimeout(timer);
+      // Small delay to ensure D3/DOM is ready on first mount
+      const timer = setTimeout(() => {
+        // If it is Tree mode (portrait), we center at top left (offset) to avoid create button
+        if (viewState.layout === 'tree') {
+          // Create button is at top: 24px + 24px + padding -> approx 80px.
+          // Let's position root at (100, 100) on screen.
+          centerView(viewState.focusedNodeId, false, false, 120, 120);
+        } else {
+          centerView(viewState.focusedNodeId, false);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [viewState.needsCentering, centerView, viewState.focusedNodeId, viewState.layout]);
 
@@ -239,7 +239,7 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
                         // Vertically align text if single line or short
                         display: 'flex',
                         flexDirection: 'column',
-                        justifyContent: 'center' 
+                        justifyContent: 'center'
                       }}
                       ref={(el) => {
                         if (el && isFocused && selectedIds.size === 1) {
@@ -274,80 +274,80 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
 
       {/* Help Module (Global UI Overlay within MindMap) */}
       <div className="absolute bottom-6 left-6 z-50 flex flex-col items-start gap-4 pointer-events-auto">
-          
-          {/* Help Content Panel */}
-          {isHelpOpen && (
-              <div className="mb-2 p-6 border-2 border-dashed border-white/20 rounded-xl bg-transparent backdrop-blur-[2px] text-neutral-300 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm">
-                  <h3 className="text-sm font-bold text-white/80 mb-4 flex items-center gap-2">
-                      <Keyboard size={16} /> 快捷键指南
-                  </h3>
-                  
-                  <div className="space-y-4 text-xs leading-relaxed">
-                      {/* Section 1: Create & Edit */}
-                      <div>
-                          <div className="text-white/50 mb-1 flex items-center gap-1"><CornerDownLeft size={10}/> 创建与编辑</div>
-                          <div className="grid grid-cols-[80px_1fr] gap-y-1">
-                              <span className="font-mono text-sky-400">Tab</span>
-                              <span>创建子级节点</span>
-                              <span className="font-mono text-sky-400">Shift + Tab</span>
-                              <span>升级节点（父级）</span>
-                              <span className="font-mono text-sky-400">Enter</span>
-                              <span>创建同级节点</span>
-                              <span className="font-mono text-sky-400">Shift + Enter</span>
-                              <span>节点内换行</span>
-                              <span className="font-mono text-sky-400">Alt + ↑/↓</span>
-                              <span>调整同级顺序</span>
-                          </div>
-                      </div>
 
-                      {/* Section 2: Navigation */}
-                      <div>
-                          <div className="text-white/50 mb-1 flex items-center gap-1"><ArrowRightLeft size={10}/> 导航与切换</div>
-                          <div className="grid grid-cols-[80px_1fr] gap-y-1">
-                              <span className="font-mono text-sky-400">↑ / ↓</span>
-                              <span>切换同级节点</span>
-                              <span className="font-mono text-sky-400">双击 ←</span>
-                              <span>光标在首位时跳转父级</span>
-                              <span className="font-mono text-sky-400">双击 →</span>
-                              <span>光标在末位时跳转子级</span>
-                          </div>
-                      </div>
+        {/* Help Content Panel */}
+        {isHelpOpen && (
+          <div className="mb-2 p-6 border-2 border-dashed border-white/20 rounded-xl bg-transparent backdrop-blur-[2px] text-neutral-300 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm">
+            <h3 className="text-sm font-bold text-white/80 mb-4 flex items-center gap-2">
+              <Keyboard size={16} /> 快捷键指南
+            </h3>
 
-                      {/* Section 3: View & Control */}
-                      <div>
-                          <div className="text-white/50 mb-1 flex items-center gap-1"><Focus size={10}/> 视图控制</div>
-                          <div className="grid grid-cols-[80px_1fr] gap-y-1">
-                              <span className="font-mono text-sky-400">Esc</span>
-                              <span>回归初始点 / 取消选中</span>
-                              <span className="font-mono text-sky-400">Alt + Enter</span>
-                              <span>聚焦当前节点</span>
-                              <span className="font-mono text-sky-400">Ctrl + Z</span>
-                              <span>撤销操作</span>
-                          </div>
-                      </div>
-
-                      {/* Section 4: Mouse */}
-                      <div>
-                           <div className="text-white/50 mb-1 flex items-center gap-1"><MousePointer2 size={10}/> 鼠标操作</div>
-                           <div className="text-white/70">
-                               拖拽节点移动位置 · 空白处拖拽框选
-                           </div>
-                      </div>
-                  </div>
+            <div className="space-y-4 text-xs leading-relaxed">
+              {/* Section 1: Create & Edit */}
+              <div>
+                <div className="text-white/50 mb-1 flex items-center gap-1"><CornerDownLeft size={10} /> 创建与编辑</div>
+                <div className="grid grid-cols-[80px_1fr] gap-y-1">
+                  <span className="font-mono text-sky-400">Tab</span>
+                  <span>创建子级节点</span>
+                  <span className="font-mono text-sky-400">Shift + Tab</span>
+                  <span>升级节点（父级）</span>
+                  <span className="font-mono text-sky-400">Enter</span>
+                  <span>创建同级节点</span>
+                  <span className="font-mono text-sky-400">Shift + Enter</span>
+                  <span>节点内换行</span>
+                  <span className="font-mono text-sky-400">Alt + ↑/↓</span>
+                  <span>调整同级顺序</span>
+                </div>
               </div>
-          )}
 
-          {/* Toggle Button */}
-          <button 
-            onClick={toggleHelp}
-            className={`
+              {/* Section 2: Navigation */}
+              <div>
+                <div className="text-white/50 mb-1 flex items-center gap-1"><ArrowRightLeft size={10} /> 导航与切换</div>
+                <div className="grid grid-cols-[80px_1fr] gap-y-1">
+                  <span className="font-mono text-sky-400">↑ / ↓</span>
+                  <span>切换同级节点</span>
+                  <span className="font-mono text-sky-400">双击 ←</span>
+                  <span>光标在首位时跳转父级</span>
+                  <span className="font-mono text-sky-400">双击 →</span>
+                  <span>光标在末位时跳转子级</span>
+                </div>
+              </div>
+
+              {/* Section 3: View & Control */}
+              <div>
+                <div className="text-white/50 mb-1 flex items-center gap-1"><Focus size={10} /> 视图控制</div>
+                <div className="grid grid-cols-[80px_1fr] gap-y-1">
+                  <span className="font-mono text-sky-400">Esc</span>
+                  <span>回归初始点 / 取消选中</span>
+                  <span className="font-mono text-sky-400">Alt + Enter</span>
+                  <span>聚焦当前节点</span>
+                  <span className="font-mono text-sky-400">Ctrl + Z</span>
+                  <span>撤销操作</span>
+                </div>
+              </div>
+
+              {/* Section 4: Mouse */}
+              <div>
+                <div className="text-white/50 mb-1 flex items-center gap-1"><MousePointer2 size={10} /> 鼠标操作</div>
+                <div className="text-white/70">
+                  拖拽节点移动位置 · 空白处拖拽框选
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toggle Button */}
+        <button
+          onClick={toggleHelp}
+          className={`
                 flex items-center justify-center w-10 h-10 rounded-full border border-white/10 shadow-lg backdrop-blur-md transition-all duration-300
                 ${isHelpOpen ? 'bg-white/10 text-white rotate-90' : 'bg-transparent text-neutral-500 hover:text-white hover:bg-white/5'}
             `}
-            title={isHelpOpen ? "关闭帮助" : "快捷键指南"}
-          >
-              {isHelpOpen ? <X size={20} /> : <CircleHelp size={20} />}
-          </button>
+          title={isHelpOpen ? "关闭帮助" : "快捷键指南"}
+        >
+          {isHelpOpen ? <X size={20} /> : <CircleHelp size={20} />}
+        </button>
       </div>
     </div>
   );

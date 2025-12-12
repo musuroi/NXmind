@@ -36,11 +36,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({ onOpenSettings, isAlwaysOnTo
     };
 
     return (
-        <div data-tauri-drag-region className="h-8 bg-neutral-900 flex justify-end items-center select-none fixed top-0 left-0 right-0 z-50 group border-b border-neutral-800/50">
-            {/* Drag Region is implicit via CSS/Attribute, but we can make the whole bar draggable except buttons */}
+        <div className="h-8 flex justify-between items-center select-none fixed top-0 left-0 right-0 z-50 group pointer-events-none">
+            {/* Drag Region - Center Handle */}
+            <div className="absolute inset-0 flex justify-center items-center pointer-events-auto" data-tauri-drag-region>
+            </div>
 
-            {/* Window Controls - Hidden by default, show on group hover as requested "mouse move up" */}
-            <div className="flex items-center space-x-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            {/* Left spacer to balance layout if needed, currently empty */}
+            <div className="w-20" />
+
+            {/* Window Controls - Hidden by default, show on group hover */}
+            <div className="flex items-center space-x-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto bg-black/20 backdrop-blur-sm rounded-bl-lg">
                 <button
                     onClick={onOpenSettings}
                     className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"

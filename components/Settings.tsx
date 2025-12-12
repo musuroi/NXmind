@@ -11,9 +11,11 @@ interface SettingsProps {
         toggleWindow: string;
     };
     onUpdateShortcut: (key: 'alwaysOnTop' | 'toggleWindow', newShortcut: string) => Promise<void>;
+    dockAutoHide: boolean;
+    onToggleDockAutoHide: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onClose, shortcuts, onUpdateShortcut }) => {
+export const Settings: React.FC<SettingsProps> = ({ onClose, shortcuts, onUpdateShortcut, dockAutoHide, onToggleDockAutoHide }) => {
     const [autoStart, setAutoStart] = useState(false);
     const [recordingKey, setRecordingKey] = useState<'alwaysOnTop' | 'toggleWindow' | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -105,6 +107,20 @@ export const Settings: React.FC<SettingsProps> = ({ onClose, shortcuts, onUpdate
                         </button>
                     </div>
 
+                    {/* Dock Auto Hide */}
+                    <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
+                        <div className="flex flex-col">
+                            <span className="text-neutral-200">Dock 自动隐藏</span>
+                            <span className="text-xs text-neutral-500">鼠标移出时隐藏底栏/侧栏</span>
+                        </div>
+                        <button
+                            onClick={onToggleDockAutoHide}
+                            className={`w-12 h-6 rounded-full transition-colors relative ${dockAutoHide ? 'bg-sky-500' : 'bg-neutral-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${dockAutoHide ? 'left-7' : 'left-1'}`} />
+                        </button>
+                    </div>
+
                     {/* Shortcuts */}
                     <div className="space-y-3 pt-4 border-t border-neutral-800">
                         <h3 className="text-sm font-medium text-neutral-400 mb-2 flex justify-between">
@@ -124,7 +140,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose, shortcuts, onUpdate
                         </div>
 
                         <div className="flex items-center justify-between bg-neutral-800/50 p-3 rounded-lg border border-neutral-800 hover:border-neutral-700 transition-colors">
-                            <span className="text-neutral-300">显示/隐藏</span>
+                            <span className="text-neutral-300">主界面显示/隐藏</span>
                             <div className="flex flex-col items-end">
                                 <button
                                     onClick={() => setRecordingKey('toggleWindow')}

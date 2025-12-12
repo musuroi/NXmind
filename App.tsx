@@ -25,6 +25,14 @@ const App: React.FC = () => {
     const [showIntroUI, setShowIntroUI] = useState(true);
     const [showSettings, setShowSettings] = useState(false);
     const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
+    const [dockAutoHide, setDockAutoHide] = useState(() => {
+        try {
+            const saved = localStorage.getItem('mindflow_dock_autohide');
+            return saved !== null ? JSON.parse(saved) : true;
+        } catch (e) {
+            return true;
+        }
+    });
 
     const handleToggleAlwaysOnTop = useCallback(async () => {
         try {
@@ -86,9 +94,17 @@ const App: React.FC = () => {
             const savedActiveId = localStorage.getItem(ACTIVE_ID_KEY);
             const savedDefaultTheme = localStorage.getItem(DEFAULT_THEME_KEY) as ThemeId;
             const savedDockPos = localStorage.getItem(DOCK_POS_KEY) as 'right' | 'bottom';
+            const savedDockAutoHide = localStorage.getItem('mindflow_dock_autohide');
 
             if (savedDockPos) {
                 setDockPosition(savedDockPos);
+            }
+            if (savedDockAutoHide !== null) {
+                try {
+                    setDockAutoHide(JSON.parse(savedDockAutoHide));
+                } catch (e) {
+                    // ignore
+                }
             }
 
             if (savedDefaultTheme && THEMES[savedDefaultTheme]) {
@@ -190,6 +206,11 @@ const App: React.FC = () => {
     useEffect(() => {
         localStorage.setItem(DOCK_POS_KEY, dockPosition);
     }, [dockPosition]);
+
+    // Dock Auto Hide Storage
+    useEffect(() => {
+        localStorage.setItem('mindflow_dock_autohide', JSON.stringify(dockAutoHide));
+    }, [dockAutoHide]);
 
 
     // Actions
@@ -376,7 +397,7 @@ const App: React.FC = () => {
                 isAlwaysOnTop={isAlwaysOnTop}
                 toggleAlwaysOnTop={handleToggleAlwaysOnTop}
             />
-            <div className="pt-8 h-full relative">
+            <div className="pt-0 h-full relative">
 
                 {/* Main Workspace */}
                 <MindMap
@@ -391,7 +412,7 @@ const App: React.FC = () => {
                 />
 
                 {/* Top Left: New Note & Theme Selector & Layout Toggle */}
-                <div className="fixed top-8 left-0 p-6 z-40 flex items-start gap-4 group/area">
+                <div className="fixed top-0 left-0 p-6 z-40 flex items-start gap-4 group/area">
                     {/* New Button */}
                     <div
                         className="relative"
@@ -455,6 +476,7 @@ const App: React.FC = () => {
                     onAction={getNoteActions}
                     position={dockPosition}
                     onPositionChange={setDockPosition}
+                    autoHide={dockAutoHide}
                 />
 
             </div>
@@ -463,6 +485,8 @@ const App: React.FC = () => {
                     onClose={() => setShowSettings(false)}
                     shortcuts={shortcuts}
                     onUpdateShortcut={updateShortcut}
+                    dockAutoHide={dockAutoHide}
+                    onToggleDockAutoHide={() => setDockAutoHide(!dockAutoHide)}
                 />
             )}
         </div>

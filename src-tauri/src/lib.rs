@@ -3,6 +3,13 @@ use tauri::{Manager, Emitter};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_global_shortcut::Builder::default().build())
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_notification::init())
+    .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![])))
+    .plugin(tauri_plugin_window_state::Builder::default().build())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -11,12 +18,6 @@ pub fn run() {
             .build(),
         )?;
       }
-      app.handle().plugin(tauri_plugin_shell::init())?;
-      app.handle().plugin(tauri_plugin_global_shortcut::Builder::default().build())?;
-      app.handle().plugin(tauri_plugin_dialog::init())?;
-      app.handle().plugin(tauri_plugin_fs::init())?;
-      app.handle().plugin(tauri_plugin_notification::init())?;
-      app.handle().plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![])))?;
       
       // Setup Tray Icon logic
       let _ = tauri::tray::TrayIconBuilder::new()

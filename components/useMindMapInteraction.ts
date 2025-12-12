@@ -240,7 +240,7 @@ export const useMindMapInteraction = ({
         if (id === internalData.id) return;
         const parent = findParentNode(internalData, id);
         if (!parent || parent.id === internalData.id) return; // 已经是根节点的子节点，无法再升级
-        
+
         cancelPendingTextSave();
         // 逻辑：移动到 Parent 的后面 (next)
         const newData = moveNode(internalData, id, parent.id, 'next');
@@ -398,7 +398,7 @@ export const useMindMapInteraction = ({
 
                         if (node.children && node.children.length > 0) {
                             const childMd = node.children
-                                .filter(child => selectedIds.has(child.id)) 
+                                .filter(child => selectedIds.has(child.id))
                                 .map(child => serializeNode(child, depth + 1))
                                 .join('\n');
                             if (childMd) {
@@ -635,8 +635,29 @@ export const useMindMapInteraction = ({
         }
     };
 
+    // DEBUG: Global Drag Listener to check if WebView is alive
+    useEffect(() => {
+        const globalDragOver = (e: DragEvent) => {
+            console.log('[Global] DragOver:', e.clientX, e.clientY, e.target);
+            // e.preventDefault(); // Uncommenting this 'force allows' drops everywhere, potentially useful for testing
+        };
+        const globalDrop = (e: DragEvent) => {
+            console.log('[Global] Drop:', e.clientX, e.clientY);
+        };
+
+        document.addEventListener('dragover', globalDragOver);
+        document.addEventListener('drop', globalDrop);
+        return () => {
+            document.removeEventListener('dragover', globalDragOver);
+            document.removeEventListener('drop', globalDrop);
+        };
+    }, []);
+
     // --- Drag & Drop Handlers ---
     const handleDragStart = (e: React.DragEvent, nodeId: string) => {
+        // DEBUG LOG
+        console.log('[MindMap] Drag Start:', nodeId);
+
         e.stopPropagation();
         setDraggedNodeId(nodeId);
 
@@ -646,12 +667,17 @@ export const useMindMapInteraction = ({
         }
 
         e.dataTransfer.effectAllowed = 'move';
+        // CRITICAL FIX: Tauri/WebView2 requires data to be set to recognize the drag
+        e.dataTransfer.setData('text/plain', nodeId);
+
         const img = new Image();
         img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
         e.dataTransfer.setDragImage(img, 0, 0);
     };
 
     const handleDragEnd = (e: React.DragEvent) => {
+        // DEBUG LOG
+        console.log('[MindMap] Drag End');
         e.preventDefault();
         e.stopPropagation();
         setDraggedNodeId(null);
@@ -669,10 +695,19 @@ export const useMindMapInteraction = ({
         const isMultiDrag = selectedIds.size > 1;
         const pos = isMultiDrag ? 'inside' : getDropPosition(e, isRoot);
 
-        setDropTarget({ nodeId: targetId, position: pos });
+        // DEBUG LOG (Throttled manually by eyes or assume browser console groups it)
+        // console.log('[MindMap] Drag Over:', { targetId, pos, clientY: e.clientY });
+
+        setDropTarget(prev => {
+            // Optimization: Only update if changed to avoid render thrashing
+            if (prev?.nodeId === targetId && prev?.position === pos) return prev;
+            console.log('[MindMap] Drag Over State Update:', { targetId, pos });
+            return { nodeId: targetId, position: pos };
+        });
     };
 
     const handleDrop = (e: React.DragEvent, targetId: string, isRoot: boolean) => {
+        console.log('[MindMap] Drop Triggered:', { targetId, draggedNodeId });
         e.preventDefault();
         e.stopPropagation();
 
@@ -687,10 +722,10 @@ export const useMindMapInteraction = ({
                 // Simple logic: Copy all selected nodes to target
                 let currentData = internalData;
                 ids.forEach(id => {
-                     // Check if not descendant
-                     if (!isDescendant(currentData, targetId, id)) {
-                         currentData = copyNode(currentData, id, targetId, pos === 'inside' ? 'inside' : 'next');
-                     }
+                    // Check if not descendant
+                    if (!isDescendant(currentData, targetId, id)) {
+                        currentData = copyNode(currentData, id, targetId, pos === 'inside' ? 'inside' : 'next');
+                    }
                 });
                 setInternalDataWithHistory(currentData, 'Paste/Copy Nodes');
 
@@ -704,9 +739,12 @@ export const useMindMapInteraction = ({
                     const newData = copyNode(internalData, draggedNodeId, targetId, pos);
                     setInternalDataWithHistory(newData, 'Copy Node');
                 } else {
+                    console.log('[MindMap] Execute Move Node:', { draggedNodeId, targetId, pos });
                     const newData = moveNode(internalData, draggedNodeId, targetId, pos);
                     setInternalDataWithHistory(newData, 'Move Node');
                 }
+            } else {
+                console.warn('[MindMap] Drop invalid: Descendant check failed');
             }
         }
         setDraggedNodeId(null);
@@ -758,7 +796,7 @@ export const useMindMapInteraction = ({
 
         // Cast strictly
         const nodes = layoutCache.current as LayoutNode[];
-        
+
         nodes.forEach((d) => {
             const nodeX = d.y - 10;
             const nodeY = d.x - 40;
