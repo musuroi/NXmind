@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Custom Body Text Color */
+body {
+  @apply text-slate-100 bg-neutral-900;
+}
