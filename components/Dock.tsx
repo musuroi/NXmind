@@ -38,8 +38,22 @@ const Dock: React.FC<DockProps> = ({ notes, activeNoteId, onSelectNote, onReorde
   // Context Menu
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
-
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto Hide State
+  const [isVisible, setIsVisible] = useState(false);
+  // Intro Animation State
+  const [showIntro, setShowIntro] = useState(true);
+  
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initial Flash Logic
+  useEffect(() => {
+      const timer = setTimeout(() => {
+          setShowIntro(false);
+      }, 2000); // Keep visible for 2 seconds on mount
+      return () => clearTimeout(timer);
+  }, []);
 
   // Close context menu on global click
   useEffect(() => {
@@ -51,6 +65,19 @@ const Dock: React.FC<DockProps> = ({ notes, activeNoteId, onSelectNote, onReorde
       window.addEventListener('click', handleClick);
       return () => window.removeEventListener('click', handleClick);
   }, []);
+
+  // Show logic
+  const handleShow = () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+      setIsVisible(true);
+  };
+
+  // Hide logic
+  const handleHide = () => {
+      hideTimeoutRef.current = setTimeout(() => {
+          setIsVisible(false);
+      }, 500); // 500ms delay
+  };
 
   // Wheel event handler for horizontal scrolling when in bottom mode
   const handleWheel = (e: React.WheelEvent) => {
@@ -109,7 +136,6 @@ const Dock: React.FC<DockProps> = ({ notes, activeNoteId, onSelectNote, onReorde
   const handleItemDragOver = (e: React.DragEvent, index: number) => {
       e.preventDefault();
       if (draggedItemIndex === null || draggedItemIndex === index) return;
-      // Real-time reorder visual could go here, but for simplicity we rely on drop
   };
 
   const handleItemDrop = (e: React.DragEvent, dropIndex: number) => {
@@ -147,8 +173,18 @@ const Dock: React.FC<DockProps> = ({ notes, activeNoteId, onSelectNote, onReorde
 
   const isRight = position === 'right';
   const containerClasses = isRight 
-    ? "fixed right-4 top-0 bottom-0 flex flex-col justify-center items-end pointer-events-none z-40"
-    : "fixed bottom-4 left-0 right-0 flex flex-row justify-center items-end pointer-events-none z-40";
+    ? "fixed right-4 top-0 bottom-0 flex flex-col justify-center items-end pointer-events-none z-40 transition-transform duration-300"
+    : "fixed bottom-4 left-0 right-0 flex flex-row justify-center items-end pointer-events-none z-40 transition-transform duration-300";
+    
+  // Translation for auto-hide
+  // Logic: Show if (hovered OR dragging OR menuOpen OR showIntro)
+  const shouldShow = isVisible || isDockDragging || contextMenu || showIntro;
+
+  const style = {
+      transform: shouldShow
+        ? 'none' 
+        : (isRight ? 'translateX(120%)' : 'translateY(120%)')
+  };
 
   const listClasses = isRight
     ? "pointer-events-auto flex flex-col items-center gap-3 bg-neutral-900/50 backdrop-blur-md border border-neutral-800 rounded-2xl py-2 px-2 shadow-2xl transition-all duration-300 max-h-[85vh] overflow-y-auto scrollbar-hide w-[4.5rem]"
@@ -162,7 +198,19 @@ const Dock: React.FC<DockProps> = ({ notes, activeNoteId, onSelectNote, onReorde
 
   return (
     <>
-    <div className={containerClasses}>
+    {/* Sensor Zone for Auto-Hide */}
+    <div 
+        className={`fixed z-30 ${isRight ? 'right-0 top-0 bottom-0 w-8' : 'bottom-0 left-0 right-0 h-8'}`}
+        onMouseEnter={handleShow}
+        onMouseLeave={handleHide}
+    />
+
+    <div 
+        className={containerClasses}
+        style={style}
+        onMouseEnter={handleShow}
+        onMouseLeave={handleHide}
+    >
       <div 
         ref={scrollContainerRef}
         className={listClasses}

@@ -127,6 +127,7 @@ export const createNewNote = (themeId: ThemeId = 'night', screenWidth = 0, scree
   // Calculate center if dimensions provided, otherwise 0,0
   const initialX = screenWidth > 0 ? screenWidth / 2 : 0;
   const initialY = screenHeight > 0 ? screenHeight / 2 : 0;
+  const isPortrait = screenHeight > screenWidth;
 
   return {
     id: generateId(),
@@ -145,7 +146,8 @@ export const createNewNote = (themeId: ThemeId = 'night', screenWidth = 0, scree
       y: initialY,
       k: 1,
       focusedNodeId: rootId,
-      needsCentering: true
+      needsCentering: true,
+      layout: isPortrait ? 'tree' : 'mindmap' // 竖屏默认使用树状图
     },
     themeColor: THEMES[themeId].buttonColor, // Use theme main color for dock icon
     themeId: themeId

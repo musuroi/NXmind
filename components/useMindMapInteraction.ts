@@ -2,7 +2,17 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import { MindNode, ViewState } from '../types';
 import { useHistory } from '../utils/useHistory';
-import { generateId, findNodeById, findParentNode, moveNode, moveNodes, isDescendant, copyNode, noteToMarkdown } from '../utils/helpers';
+import { generateId, findNodeById, findParentNode, moveNode, moveNodes, isDescendant, copyNode } from '../utils/helpers';
+
+// Define LayoutNode to fix type errors
+export interface LayoutNode {
+    data: MindNode;
+    x: number;
+    y: number;
+    width: number;
+    actualHeight?: number;
+    depth: number;
+}
 
 interface DropTargetState {
     nodeId: string;
@@ -39,7 +49,7 @@ interface useMindMapInteractionProps {
     autoPan: (editingId: string | null) => void;
     wrapperRef: React.RefObject<HTMLDivElement>;
     svgRef: React.RefObject<SVGSVGElement>;
-    layoutCache: React.MutableRefObject<any[]>;
+    layoutCache: React.MutableRefObject<any[]>; // Accepts any[] from Ref, but we cast to LayoutNode[] internally
 }
 
 export const useMindMapInteraction = ({
@@ -69,10 +79,8 @@ export const useMindMapInteraction = ({
 
     // Wrap undo/redo to sync the committed state ref
     const undo = useCallback(() => {
-        console.log('[Interaction] undo called');
         // Critical Fix: Clear any pending debounced save to prevent "ghost" overwrites after undo
         if (saveTimeoutRef.current) {
-            console.log('[Interaction] Clearing pending save on undo');
             clearTimeout(saveTimeoutRef.current);
             saveTimeoutRef.current = null;
             isTransientRef.current = false;
@@ -81,7 +89,6 @@ export const useMindMapInteraction = ({
     }, [originalUndo]);
 
     const redo = useCallback(() => {
-        console.log('[Interaction] redo called');
         // Critical Fix: Clear any pending debounced save
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
@@ -91,18 +98,6 @@ export const useMindMapInteraction = ({
         originalRedo();
     }, [originalRedo]);
 
-    // Update ref when internalData changes (but only if it's NOT a transient update?)
-    // This is tricky. simpler:
-    // Only update ref when we MANUALLY commit or when we detect an external change (undo/redo).
-    // We can detect external change by checking if `internalData` changed but NOT via our handlers?
-    // Let's rely on explicit updates to the ref where possible.
-    // For Undo/Redo, since `internalData` changes abruptly, we should sync the ref in a useEffect.
-
-    // BUT wait, if we are in "Transient Mode" (typing), internalData is changing silently.
-    // Ideally, `lastCommittedData` should stick to the OLD state until we commit.
-    // If we undo, we want `lastCommittedData` to jump to the restored state.
-
-    // Solution: A flag isTransient?
     const isTransientRef = useRef(false);
 
     useEffect(() => {
@@ -151,7 +146,7 @@ export const useMindMapInteraction = ({
 
     // --- Data Mutation Handlers ---
 
-    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Cancel any pending text save (avoids "Ghost Updates" reviving deleted nodes)
     const cancelPendingTextSave = useCallback(() => {
@@ -163,6 +158,12 @@ export const useMindMapInteraction = ({
     }, []);
 
     const handleTextChange = (id: string, newText: string) => {
+        // 5. 限制单节点文本字符最大5000字
+        if (newText.length > 5000) {
+            alert("字符太多要爆掉啦");
+            return;
+        }
+
         isTransientRef.current = true; // Mark as transient
 
         const updateText = (node: MindNode): MindNode => {
@@ -233,6 +234,51 @@ export const useMindMapInteraction = ({
         setSelectedIds(new Set([newId]));
         onViewStateChange({ ...viewState, focusedNodeId: newId });
     };
+
+    // 1. 升级节点 (Shift + Tab)
+    const promoteNode = (id: string) => {
+        if (id === internalData.id) return;
+        const parent = findParentNode(internalData, id);
+        if (!parent || parent.id === internalData.id) return; // 已经是根节点的子节点，无法再升级
+        
+        cancelPendingTextSave();
+        // 逻辑：移动到 Parent 的后面 (next)
+        const newData = moveNode(internalData, id, parent.id, 'next');
+        setInternalDataWithHistory(newData, 'Promote Node');
+        // Focus remains on id
+    };
+
+    // 2. 节点排序 (Alt + Up/Down)
+    const reorderNode = (id: string, direction: 'up' | 'down') => {
+        if (id === internalData.id) return;
+        const parent = findParentNode(internalData, id);
+        if (!parent) return;
+
+        const index = parent.children.findIndex(c => c.id === id);
+        if (index === -1) return;
+
+        let targetId: string | null = null;
+        let pos: 'prev' | 'next' = 'next';
+
+        if (direction === 'up') {
+            if (index > 0) {
+                targetId = parent.children[index - 1].id;
+                pos = 'prev'; // 放在上一个的前面
+            }
+        } else {
+            if (index < parent.children.length - 1) {
+                targetId = parent.children[index + 1].id;
+                pos = 'next'; // 放在下一个的后面
+            }
+        }
+
+        if (targetId) {
+            cancelPendingTextSave();
+            const newData = moveNode(internalData, id, targetId, pos);
+            setInternalDataWithHistory(newData, 'Reorder Node');
+        }
+    };
+
 
     const deleteNode = (id: string, nextFocusId?: string) => {
         if (id === internalData.id) return;
@@ -320,11 +366,9 @@ export const useMindMapInteraction = ({
                 }
             } else if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
                 // Global Copy (Multi-select)
-                // Fix: Also handle single selection if box-selected (size >= 1)
-                // Fix: Only copy what is explicitly selected (strict)
                 if (selectedIds.size >= 1) {
                     e.preventDefault();
-
+                    // ... serialization logic ...
                     const ids = Array.from(selectedIds);
                     const nodesMap = new Map<string, MindNode>();
                     ids.forEach(id => {
@@ -332,7 +376,6 @@ export const useMindMapInteraction = ({
                         if (node) nodesMap.set(id, node);
                     });
 
-                    // 1. Identify Top-Level Nodes within the selection
                     const topLevelNodes: MindNode[] = [];
                     nodesMap.forEach((node, id) => {
                         let isChildOfSelection = false;
@@ -348,8 +391,6 @@ export const useMindMapInteraction = ({
                         if (!isChildOfSelection) topLevelNodes.push(node);
                     });
 
-                    // 2. Serialize Helper (Strict)
-                    // Only recurse if child is in selectedIds
                     const serializeNode = (node: MindNode, depth: number = 0): string => {
                         const indent = '  '.repeat(depth);
                         const prefix = '- ';
@@ -357,7 +398,7 @@ export const useMindMapInteraction = ({
 
                         if (node.children && node.children.length > 0) {
                             const childMd = node.children
-                                .filter(child => selectedIds.has(child.id)) // Strict Check
+                                .filter(child => selectedIds.has(child.id)) 
                                 .map(child => serializeNode(child, depth + 1))
                                 .join('\n');
                             if (childMd) {
@@ -409,7 +450,6 @@ export const useMindMapInteraction = ({
             return isDt;
         };
 
-        // Unified Undo: Ctrl+Z triggers global undo, preventing browser native text undo
         if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
             e.preventDefault();
             if (e.shiftKey) redo();
@@ -417,12 +457,10 @@ export const useMindMapInteraction = ({
             return;
         }
 
-        // Copy: Ctrl+C (Single Node / Text Selection)
         if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
-            const input = e.currentTarget as HTMLInputElement;
+            const input = e.currentTarget as HTMLTextAreaElement;
             const hasSelection = input.selectionStart !== input.selectionEnd;
 
-            // Note: Multi-select copy is handled by global listener because inputs are disabled
             if (selectedIds.size <= 1 && !hasSelection) {
                 e.preventDefault();
                 const node = findNodeById(internalData, nodeId);
@@ -439,16 +477,25 @@ export const useMindMapInteraction = ({
         } else if (e.key === 'Tab') {
             e.preventDefault();
             if (e.repeat) return;
-            addChild(nodeId);
+            // 1. Shift + Tab: 升级节点
+            if (e.shiftKey) {
+                promoteNode(nodeId);
+            } else {
+                addChild(nodeId);
+            }
         } else if (e.key === 'Enter') {
+            // 3. Shift + Enter: 节点内换行 (不创建兄弟节点)
+            if (e.shiftKey) {
+                e.stopPropagation(); // 允许默认行为 (textarea 换行)
+                return;
+            }
             e.preventDefault();
             addSibling(nodeId);
         } else if (e.key === 'Escape') {
-            (e.target as HTMLInputElement).blur();
+            (e.target as HTMLElement).blur();
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
-            // Empty node double tap delete
             if (e.key === 'Backspace') {
-                const input = e.target as HTMLInputElement;
+                const input = e.target as HTMLTextAreaElement;
                 if (input.value === '') {
                     if (isDoubleTap('BackspaceEmpty')) {
                         e.preventDefault();
@@ -480,19 +527,29 @@ export const useMindMapInteraction = ({
                 deleteNode(nodeId, nextFocusId);
             }
         } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            // 2. Alt + Up/Down: 排序
+            if (e.altKey) {
+                e.preventDefault();
+                reorderNode(nodeId, e.key === 'ArrowUp' ? 'up' : 'down');
+                return;
+            }
+
+            // Normal Navigation
             e.preventDefault();
-            const currentNodeLayout = layoutCache.current.find(d => d.data.id === nodeId);
+            // Cast strictly to LayoutNode[] to fix type errors
+            const nodes = layoutCache.current as LayoutNode[];
+            const currentNodeLayout = nodes.find(d => d.data.id === nodeId);
             if (!currentNodeLayout) return;
 
             const isUp = e.key === 'ArrowUp';
 
-            const candidates = layoutCache.current.filter(d => {
+            const candidates = nodes.filter(d => {
                 if (d.data.id === nodeId) return false;
                 return isUp ? d.x < currentNodeLayout.x : d.x > currentNodeLayout.x;
             });
 
             if (candidates.length > 0) {
-                let closestNode: any = null;
+                let closestNode: LayoutNode | null = null;
                 let minDistanceSq = Infinity;
 
                 candidates.forEach(d => {
@@ -507,12 +564,13 @@ export const useMindMapInteraction = ({
                 });
 
                 if (closestNode) {
-                    setEditingId(closestNode.data.id);
-                    onViewStateChange({ ...viewState, focusedNodeId: closestNode.data.id });
+                    const nextId = (closestNode as LayoutNode).data.id;
+                    setEditingId(nextId);
+                    onViewStateChange({ ...viewState, focusedNodeId: nextId });
                 }
             }
         } else if (e.key === 'ArrowLeft') {
-            const input = e.target as HTMLInputElement;
+            const input = e.target as HTMLTextAreaElement;
             if (input.selectionStart === 0 && input.selectionEnd === 0) {
                 if (isDoubleTap('ArrowLeft')) {
                     e.preventDefault();
@@ -526,7 +584,7 @@ export const useMindMapInteraction = ({
                 lastKeyRef.current = { key: '', time: 0 };
             }
         } else if (e.key === 'ArrowRight') {
-            const input = e.target as HTMLInputElement;
+            const input = e.target as HTMLTextAreaElement;
             if (input.selectionStart === input.value.length) {
                 if (isDoubleTap('ArrowRight')) {
                     e.preventDefault();
@@ -543,11 +601,11 @@ export const useMindMapInteraction = ({
         }
     };
 
-    const handleInputDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    const handleInputDoubleClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
         e.currentTarget.select();
     };
 
-    const handleInputSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
+    const handleInputSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
         const input = e.currentTarget;
         if (input.selectionStart === 0 && input.selectionEnd === 0) {
             input.style.caretColor = '#f472b6'; // Pink
@@ -625,35 +683,14 @@ export const useMindMapInteraction = ({
 
         if (isMultiDrag) {
             if (isCopy) {
-                // Multi-node Copy
-                // For simplicity, we clone each selected node and add to target
-                // We must handle "Top Level Rules" to avoid duplication if parent+child selected
-                // Luckily moveNodes logic uses similar filtering, but copyNode is single.
-                // We'll reimplement safe copy loop here using getTopLevelNodes logic (conceptually).
-
-                // Note: We can't import getTopLevelNodes if it's not exported or reuse logic easily without helper.
-                // I'll trust `noteToMarkdown` helper has `getTopLevelNodes`.
-                // For now, let's just use a simple loop over selectedIds, but we should strictly use `moveNodes` style logic.
-                // Actually, `moveNodes` does a remove-then-insert. Copy is just insert clones.
-                // Let's iterate selectedIds, filter out those whose parents are also in selectedIds.
-
                 const ids = Array.from(selectedIds);
-                const topLevelIds = ids.filter(id => {
-                    // check if any ancestor is in ids
-                    let curr = findParentNode(internalData, id);
-                    while (curr) {
-                        if (ids.includes(curr.id)) return false;
-                        curr = findParentNode(internalData, curr.id);
-                        if (curr?.id === internalData.id) break;
-                    }
-                    return true;
-                });
-
+                // Simple logic: Copy all selected nodes to target
                 let currentData = internalData;
-                topLevelIds.forEach(id => {
-                    currentData = copyNode(currentData, id, targetId, pos === 'inside' ? 'inside' : 'next'); // Approximate position
-                    // Note: 'pos' applies to the drop target. If we drop multiple, where do they go?
-                    // Usually appended.
+                ids.forEach(id => {
+                     // Check if not descendant
+                     if (!isDescendant(currentData, targetId, id)) {
+                         currentData = copyNode(currentData, id, targetId, pos === 'inside' ? 'inside' : 'next');
+                     }
                 });
                 setInternalDataWithHistory(currentData, 'Paste/Copy Nodes');
 
@@ -719,11 +756,14 @@ export const useMindMapInteraction = ({
         const transform = d3.zoomTransform(svgRef.current!);
         const newSelected = new Set<string>();
 
-        layoutCache.current.forEach((d: any) => {
+        // Cast strictly
+        const nodes = layoutCache.current as LayoutNode[];
+        
+        nodes.forEach((d) => {
             const nodeX = d.y - 10;
             const nodeY = d.x - 40;
             const nodeW = d.width + 20;
-            const nodeH = 80;
+            const nodeH = d.actualHeight || 80;
 
             const screenX = transform.applyX(nodeX);
             const screenY = transform.applyY(nodeY);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Note, MindNode, ViewState, ThemeId } from './types';
 import { createNewNote, noteToMarkdown, THEMES } from './utils/helpers';
-import MindMap from './components/MindMap';
+import MindMap, { MindMapHandle } from './components/MindMap';
 import Dock from './components/Dock';
-import { Plus, Download, Copy, Trash2, Menu } from 'lucide-react';
+import { Plus, Download, Copy, Trash2, Menu, GitGraph } from 'lucide-react';
 
 const STORAGE_KEY = 'mindflow_notes_v1';
 const ACTIVE_ID_KEY = 'mindflow_active_id';
@@ -17,6 +17,17 @@ const App: React.FC = () => {
   const [defaultTheme, setDefaultTheme] = useState<ThemeId>('night');
   const [isDragOverNew, setIsDragOverNew] = useState(false);
   const [dockPosition, setDockPosition] = useState<'right' | 'bottom'>('right');
+  const [showIntroUI, setShowIntroUI] = useState(true);
+  
+  const mindMapRef = useRef<MindMapHandle>(null);
+
+  // Intro Animation Timer
+  useEffect(() => {
+      const timer = setTimeout(() => {
+          setShowIntroUI(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+  }, []);
 
   // Load from Storage
   useEffect(() => {
@@ -72,6 +83,42 @@ const App: React.FC = () => {
       setNotes([newNote]);
       setActiveNoteId(newNote.id);
   };
+
+  // Orientation Change Listener
+  useEffect(() => {
+    const handleResize = () => {
+        const isPortrait = window.innerHeight > window.innerWidth;
+        
+        // Auto-switch layout on orientation change if needed
+        // Requirement: "When vertical screen detected... changed to tree chart"
+        setNotes(prev => prev.map(note => {
+            if (note.id === activeNoteId) {
+                // If switching to Portrait and not already tree, switch
+                if (isPortrait && note.viewState.layout !== 'tree') {
+                    // Close help if open
+                    if (mindMapRef.current) {
+                        mindMapRef.current.setHelpOpen(false);
+                        // Also re-center to top-left to avoid overlap (handled by needsCentering)
+                    }
+                    return {
+                        ...note,
+                        viewState: {
+                            ...note.viewState,
+                            layout: 'tree',
+                            needsCentering: true // Trigger re-centering logic in MindMap
+                        }
+                    };
+                }
+            }
+            return note;
+        }));
+    };
+
+    window.addEventListener('resize', handleResize);
+    // Initial check handled by createNewNote or saved state, but we can double check here? 
+    // No, better to leave user control after load unless explicit resize happens.
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeNoteId]);
 
   // Auto Save - Strict dependency check and isLoading gate
   useEffect(() => {
@@ -150,6 +197,23 @@ const App: React.FC = () => {
       return note;
     }));
   }, [activeNoteId]);
+
+  const toggleLayout = () => {
+      setNotes(prev => prev.map(note => {
+          if (note.id === activeNoteId) {
+              const newLayout = note.viewState.layout === 'tree' ? 'mindmap' : 'tree';
+              // If switching to tree, maybe re-center? Optional.
+              return {
+                  ...note,
+                  viewState: {
+                      ...note.viewState,
+                      layout: newLayout
+                  }
+              };
+          }
+          return note;
+      }));
+  };
 
   const handleThemeChange = (newThemeId: ThemeId) => {
       // If we click a theme bubble, update current note theme
@@ -251,6 +315,7 @@ const App: React.FC = () => {
   // derived
   const activeNote = notes.find(n => n.id === activeNoteId);
   const activeTheme = activeNote ? THEMES[activeNote.themeId] || THEMES['night'] : THEMES['night'];
+  const currentLayout = activeNote?.viewState.layout || 'mindmap';
 
   if (isLoading || !activeNote) return <div className="bg-neutral-900 w-screen h-screen"></div>;
 
@@ -259,6 +324,7 @@ const App: React.FC = () => {
       
       {/* Main Workspace */}
       <MindMap 
+        ref={mindMapRef}
         key={activeNote.id} 
         data={activeNote.root} 
         viewState={activeNote.viewState}
@@ -268,7 +334,7 @@ const App: React.FC = () => {
         onViewStateChange={handleUpdateViewState}
       />
 
-      {/* Top Left: New Note & Theme Selector */}
+      {/* Top Left: New Note & Theme Selector & Layout Toggle */}
       <div className="fixed top-0 left-0 p-6 z-50 flex items-start gap-4 group/area">
          {/* New Button */}
          <div 
@@ -281,7 +347,8 @@ const App: React.FC = () => {
                 onClick={() => handleCreateNote()}
                 className={`
                     p-3 rounded-full shadow-lg transition-all duration-300 transform border border-white/20
-                    ${isDragOverNew ? 'scale-125 ring-4 ring-white' : 'scale-90 opacity-0 group-hover/area:opacity-100 group-hover/area:scale-100'}
+                    ${isDragOverNew ? 'scale-125 ring-4 ring-white' : ''}
+                    ${showIntroUI ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover/area:opacity-100 group-hover/area:scale-100'}
                 `}
                 style={{ 
                     backgroundColor: THEMES[defaultTheme].buttonColor,
@@ -293,8 +360,11 @@ const App: React.FC = () => {
             </button>
          </div>
 
-         {/* Theme Bubbles (Reveal on hover) */}
-         <div className="flex gap-2 pt-2 opacity-0 -translate-x-10 group-hover/area:opacity-100 group-hover/area:translate-x-0 transition-all duration-500 delay-75">
+         {/* Theme Bubbles & Layout Toggle (Reveal on hover or intro) */}
+         <div className={`
+             flex gap-2 pt-2 items-center transition-all duration-500 delay-75
+             ${showIntroUI ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-10 group-hover/area:opacity-100 group-hover/area:translate-x-0'}
+         `}>
             {Object.values(THEMES).map(theme => (
                 <div 
                     key={theme.id}
@@ -303,9 +373,20 @@ const App: React.FC = () => {
                     onClick={() => handleThemeChange(theme.id)}
                     className="w-8 h-8 rounded-full cursor-grab active:cursor-grabbing border-2 border-white/20 hover:scale-110 transition-transform shadow-md"
                     style={{ backgroundColor: theme.buttonColor }}
-                    title={`切换主题: ${theme.name} (拖拽我到+号可设为默认)`}
+                    title={`切换主题: ${theme.name}`}
                 />
             ))}
+            
+            <div className="w-[1px] h-6 bg-white/20 mx-1"></div>
+
+            {/* Layout Toggle Button */}
+            <button
+                onClick={toggleLayout}
+                className="w-8 h-8 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors shadow-md text-white/80"
+                title={currentLayout === 'mindmap' ? "切换为直角树状图 (目录模式)" : "切换为曲线思维导图"}
+            >
+                <GitGraph size={16} className={currentLayout === 'tree' ? "rotate-90" : ""} />
+            </button>
          </div>
       </div>
 
