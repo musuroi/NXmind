@@ -65,6 +65,14 @@ const App: React.FC = () => {
     const mindMapRef = useRef<MindMapHandle>(null);
 
     useEffect(() => {
+        // Show window gracefully after mount to avoid "flash" of unpositioned state
+        const initWindow = async () => {
+            const win = getCurrentWindow();
+            await win.show();
+            await win.setFocus();
+        };
+        initWindow();
+
         // @ts-ignore
         // if (!window.__TAURI_INTERNALS__) {
         //     console.error("Tauri Internals not found");
