@@ -45,7 +45,6 @@ const cargoTomlPath = path.resolve(__dirname, '../src-tauri/Cargo.toml');
 try {
     let content = fs.readFileSync(cargoTomlPath, 'utf-8');
     // Simple regex to find version = "..." under [package]
-    // Assuming version is near the top and looks like version = "0.5.1"
     // We use a regex that matches the first occurrence which is typically the package version
     const regex = /^version\s*=\s*"[^"]+"/m;
 
