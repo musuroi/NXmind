@@ -59,6 +59,20 @@ pub fn run() {
         })
         .build(app);
 
+      
+      // 限制窗口最小大小，防止意外变小（为显示器的 12.5%）
+      if let Some(window) = app.get_webview_window("main") {
+          if let Ok(Some(monitor)) = window.current_monitor() {
+              let size = monitor.size();
+              let min_width = size.width / 8;
+              let min_height = size.height / 8;
+              let _ = window.set_min_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
+                  width: min_width,
+                  height: min_height,
+              })));
+          }
+      }
+
       Ok(())
     })
     .run(tauri::generate_context!())
