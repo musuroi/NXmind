@@ -340,7 +340,7 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
                   拖拽节点移动位置 · 空白处拖拽框选
                 </div>
                 <div style={{ opacity: 0.8 }}>
-                  右键点击Dock可删除、下载文件
+                  右键点击Dock图标可删除、下载文件
                 </div>
               </div>
             </div>
