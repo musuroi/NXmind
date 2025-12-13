@@ -1,10 +1,12 @@
-# Mindflow Notes (便签导图)
+# NXmind (心流导图)
 
 > **极简、流畅、无感。让思维整理效率提升 1000% 的下一代生产力工具。**
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Tauri](https://img.shields.io/badge/Built_with-Tauri_2.0-orange) ![React](https://img.shields.io/badge/Frontend-React_19-blue)
+![Banner](logo/banner.jpg)
 
-Mindflow Notes 将**便利贴的自由**与**思维导图的逻辑**完美融合。我们抛弃了传统导图软件繁琐的菜单和边框，打造了一个"存在即合理"的纯净思考空间。
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Tauri](https://img.shields.io/badge/Built_with-Tauri_2.0-orange) ![React](https://img.shields.io/badge/Frontend-React_19-blue) ![Author](https://img.shields.io/badge/Author-thehuan-purple)
+
+NXmind (心流导图) 将**便利贴的自由**与**思维导图的逻辑**完美融合。我们抛弃了传统导图软件繁琐的菜单和边框，打造了一个"存在即合理"的纯净思考空间。
 
 ---
 
@@ -29,7 +31,7 @@ Mindflow Notes 将**便利贴的自由**与**思维导图的逻辑**完美融合
 
 ## 🛠️ 技术架构 (Architecture)
 
-Mindflow 采用最前沿的 **Tauri 2.0** 架构，实现了 Web 的灵活与 Native 的性能完美统一。
+NXmind 采用最前沿的 **Tauri 2.0** 架构，实现了 Web 的灵活与 Native 的性能完美统一。
 
 *   **Backend (Rust)**
     *   `Tauri 2.0`: 提供系统级能力（文件系统、全局快捷键、窗口管理）。
@@ -63,3 +65,4 @@ npm run tauri build
 
 ## 📄 开源协议
 MIT License. 自由使用，自由创造。
+Copyright (c) 2025 thehuan

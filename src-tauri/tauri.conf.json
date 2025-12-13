@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "便签导图",
-  "version": "0.1.0",
-  "identifier": "com.mindflow.notes",
+  "productName": "NXmind",
+  "version": "0.5.1",
+  "identifier": "com.thehuan.nxmind",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "便签导图",
+        "title": "心流导图",
         "label": "main",
         "width": 1024,
         "height": 768,
