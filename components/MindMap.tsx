@@ -277,60 +277,70 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
 
         {/* Help Content Panel */}
         {isHelpOpen && (
-          <div className="mb-2 p-6 border-2 border-dashed border-white/20 rounded-xl bg-transparent backdrop-blur-[2px] text-neutral-300 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm">
-            <h3 className="text-sm font-bold text-white/80 mb-4 flex items-center gap-2">
+          <div
+            className="mb-2 p-6 border-2 border-dashed rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm backdrop-blur-md"
+            style={{
+              borderColor: getContrastingTextColor(theme.background) === '#ffffff' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+              color: getContrastingTextColor(theme.background),
+              backgroundColor: getContrastingTextColor(theme.background) === '#ffffff' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' // Adaptive semi-transparent bg
+            }}
+          >
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ opacity: 0.9 }}>
               <Keyboard size={16} /> 快捷键指南
             </h3>
 
             <div className="space-y-4 text-xs leading-relaxed">
               {/* Section 1: Create & Edit */}
               <div>
-                <div className="text-white/50 mb-1 flex items-center gap-1"><CornerDownLeft size={10} /> 创建与编辑</div>
+                <div className="mb-1 flex items-center gap-1" style={{ opacity: 0.7 }}><CornerDownLeft size={10} /> 创建与编辑</div>
                 <div className="grid grid-cols-[80px_1fr] gap-y-1">
-                  <span className="font-mono text-sky-400">Tab</span>
-                  <span>创建子级节点</span>
-                  <span className="font-mono text-sky-400">Shift + Tab</span>
-                  <span>升级节点（父级）</span>
-                  <span className="font-mono text-sky-400">Enter</span>
-                  <span>创建同级节点</span>
-                  <span className="font-mono text-sky-400">Shift + Enter</span>
-                  <span>节点内换行</span>
-                  <span className="font-mono text-sky-400">Alt + ↑/↓</span>
-                  <span>调整同级顺序</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Tab</span>
+                  <span style={{ opacity: 0.8 }}>创建子级节点</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Shift + Tab</span>
+                  <span style={{ opacity: 0.8 }}>升级节点（父级）</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Enter</span>
+                  <span style={{ opacity: 0.8 }}>创建同级节点</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Shift + Enter</span>
+                  <span style={{ opacity: 0.8 }}>节点内换行</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Alt + ↑/↓</span>
+                  <span style={{ opacity: 0.8 }}>调整同级顺序</span>
                 </div>
               </div>
 
               {/* Section 2: Navigation */}
               <div>
-                <div className="text-white/50 mb-1 flex items-center gap-1"><ArrowRightLeft size={10} /> 导航与切换</div>
+                <div className="mb-1 flex items-center gap-1" style={{ opacity: 0.7 }}><ArrowRightLeft size={10} /> 导航与切换</div>
                 <div className="grid grid-cols-[80px_1fr] gap-y-1">
-                  <span className="font-mono text-sky-400">↑ / ↓</span>
-                  <span>切换同级节点</span>
-                  <span className="font-mono text-sky-400">双击 ←</span>
-                  <span>光标在首位时跳转父级</span>
-                  <span className="font-mono text-sky-400">双击 →</span>
-                  <span>光标在末位时跳转子级</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>↑ / ↓</span>
+                  <span style={{ opacity: 0.8 }}>切换同级节点</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>双击 ←</span>
+                  <span style={{ opacity: 0.8 }}>光标在首位时跳转父级</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>双击 →</span>
+                  <span style={{ opacity: 0.8 }}>光标在末位时跳转子级</span>
                 </div>
               </div>
 
               {/* Section 3: View & Control */}
               <div>
-                <div className="text-white/50 mb-1 flex items-center gap-1"><Focus size={10} /> 视图控制</div>
+                <div className="mb-1 flex items-center gap-1" style={{ opacity: 0.7 }}><Focus size={10} /> 视图控制</div>
                 <div className="grid grid-cols-[80px_1fr] gap-y-1">
-                  <span className="font-mono text-sky-400">Esc</span>
-                  <span>回归初始点 / 取消选中</span>
-                  <span className="font-mono text-sky-400">Alt + Enter</span>
-                  <span>聚焦当前节点</span>
-                  <span className="font-mono text-sky-400">Ctrl + Z</span>
-                  <span>撤销操作</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Esc</span>
+                  <span style={{ opacity: 0.8 }}>回归初始点</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Alt + Enter</span>
+                  <span style={{ opacity: 0.8 }}>聚焦当前节点</span>
+                  <span className="font-mono font-bold" style={{ opacity: 1 }}>Ctrl + Z</span>
+                  <span style={{ opacity: 0.8 }}>撤销操作</span>
                 </div>
               </div>
 
               {/* Section 4: Mouse */}
               <div>
-                <div className="text-white/50 mb-1 flex items-center gap-1"><MousePointer2 size={10} /> 鼠标操作</div>
-                <div className="text-white/70">
+                <div className="mb-1 flex items-center gap-1" style={{ opacity: 0.7 }}><MousePointer2 size={10} /> 鼠标操作</div>
+                <div style={{ opacity: 0.8 }}>
                   拖拽节点移动位置 · 空白处拖拽框选
+                </div>
+                <div style={{ opacity: 0.8 }}>
+                  右键点击Dock可删除、下载文件
                 </div>
               </div>
             </div>
@@ -341,9 +351,16 @@ const MindMap = forwardRef<MindMapHandle, MindMapProps>(({ data, viewState, them
         <button
           onClick={toggleHelp}
           className={`
-                flex items-center justify-center w-10 h-10 rounded-full border border-white/10 shadow-lg backdrop-blur-md transition-all duration-300
-                ${isHelpOpen ? 'bg-white/10 text-white rotate-90' : 'bg-transparent text-neutral-500 hover:text-white hover:bg-white/5'}
+                flex items-center justify-center w-10 h-10 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 opacity-40 hover:opacity-100
+                ${isHelpOpen ? 'rotate-90' : ''}
             `}
+          style={{
+            borderColor: getContrastingTextColor(theme.background) === '#ffffff' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+            backgroundColor: isHelpOpen
+              ? (getContrastingTextColor(theme.background) === '#ffffff' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)')
+              : 'transparent',
+            color: getContrastingTextColor(theme.background)
+          }}
           title={isHelpOpen ? "关闭帮助" : "快捷键指南"}
         >
           {isHelpOpen ? <X size={20} /> : <CircleHelp size={20} />}

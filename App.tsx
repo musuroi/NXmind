@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Note, MindNode, ViewState, ThemeId } from './types';
-import { createNewNote, noteToMarkdown, THEMES } from './utils/helpers';
+import { createNewNote, noteToMarkdown, THEMES, getContrastingTextColor } from './utils/helpers';
 import MindMap, { MindMapHandle } from './components/MindMap';
 import Dock from './components/Dock';
 import { TitleBar } from './components/TitleBar';
@@ -396,6 +396,12 @@ const App: React.FC = () => {
     const activeTheme = activeNote ? THEMES[activeNote.themeId] || THEMES['night'] : THEMES['night'];
     const currentLayout = activeNote?.viewState.layout || 'mindmap';
 
+    // Adaptive color calculation
+    const baseContrastColor = getContrastingTextColor(activeTheme.background);
+    // Muted version for icons (using 60% opacity logic in styles, or passing rgba)
+    // Actually, passing the base color allows components to apply opacity
+    const isDarkTheme = baseContrastColor === '#ffffff';
+
     if (isLoading || !activeNote) return <div className="bg-neutral-900 w-screen h-screen"></div>;
 
     return (
@@ -404,6 +410,7 @@ const App: React.FC = () => {
                 onOpenSettings={() => setShowSettings(true)}
                 isAlwaysOnTop={isAlwaysOnTop}
                 toggleAlwaysOnTop={handleToggleAlwaysOnTop}
+                baseColor={baseContrastColor}
             />
             <div className="pt-0 h-full relative">
 
@@ -431,13 +438,18 @@ const App: React.FC = () => {
                         <button
                             onClick={() => handleCreateNote()}
                             className={`
-                    p-3 rounded-full shadow-lg transition-all duration-300 transform border border-white/20
-                    ${isDragOverNew ? 'scale-125 ring-4 ring-white' : ''}
+                    p-3 rounded-full shadow-lg transition-all duration-300 transform border
+                    ${isDragOverNew ? 'scale-125 ring-4' : ''}
                     ${showIntroUI ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover/area:opacity-100 group-hover/area:scale-100'}
                 `}
                             style={{
                                 backgroundColor: THEMES[defaultTheme].buttonColor,
-                                color: '#fff'
+                                color: '#ffffff', // Plus button always uses theme color background, so white text is usually safe or need check? 
+                                // Most theme buttonColors are bright/dark enough for white text. Let's keep white for now as per design.
+                                borderColor: isDarkTheme ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                // Drag ring color
+                                // ringColor handled by tailwind class 'ring-white' above is static. Should be dynamic?
+                                // Let's keep simple for the main action button.
                             }}
                             title="新建便签 (拖拽主题球到此可修改默认主题并新建)"
                         >
@@ -467,7 +479,12 @@ const App: React.FC = () => {
                         {/* Layout Toggle Button */}
                         <button
                             onClick={toggleLayout}
-                            className="w-8 h-8 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors shadow-md text-white/80"
+                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all shadow-md hover:scale-110 opacity-40 hover:opacity-100"
+                            style={{
+                                borderColor: isDarkTheme ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
+                                color: baseContrastColor,
+                                backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                            }}
                             title={currentLayout === 'mindmap' ? "切换为直角树状图 (目录模式)" : "切换为曲线思维导图"}
                         >
                             <GitGraph size={16} className={currentLayout === 'tree' ? "rotate-90" : ""} />

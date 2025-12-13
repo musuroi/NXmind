@@ -10,6 +10,10 @@ pub fn run() {
     .plugin(tauri_plugin_notification::init())
     .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![])))
     .plugin(tauri_plugin_window_state::Builder::default().build())
+    .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+      let _ = app.get_webview_window("main").expect("no main window").show();
+      let _ = app.get_webview_window("main").expect("no main window").set_focus();
+    }))
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

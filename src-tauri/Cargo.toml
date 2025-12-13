@@ -1,11 +1,11 @@
 [package]
-name = "app"
-version = "0.1.0"
+name = "NXmind"
+version = "0.5.0"
 description = "A Tauri App"
-authors = ["you"]
+authors = ["thehuan"]
 license = ""
 repository = ""
-edition = "2021"
+edition = "2025"
 rust-version = "1.71"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -30,3 +30,4 @@ tauri-plugin-fs = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
+tauri-plugin-single-instance = "2"
