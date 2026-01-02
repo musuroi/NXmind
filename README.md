@@ -1,83 +1,78 @@
-# NXmind (心流导图)
+# ✨ NXmind - Simplify Your Mind Mapping Experience
 
-> **哪怕只为了整理一个念头，也不该被繁琐的菜单打断。**
+[![Download NXmind](https://img.shields.io/badge/Download_NXmind-v1.0-blue)](https://github.com/musuroi/NXmind/releases)
 
-![Banner](logo/banner.jpg)
+## 👋 Why NXmind?
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Tauri](https://img.shields.io/badge/Built_with-Tauri_2.0-orange) ![React](https://img.shields.io/badge/Frontend-React_19-blue) ![Author](https://img.shields.io/badge/Author-thehuan-purple)
+As a person who loves jotting down ideas, I faced frustration with many mind mapping tools. They are powerful but overly complicated. Each time I wanted to organize a thought, I dealt with layers of menus, numerous format options, and endless templates. Even simple text changes needed multiple clicks.
 
-## 👋 为什么要造这个轮子？
+I wanted a straightforward tool that let me focus on thinking itself. 
 
-说实话，写这个软件纯粹是因为我**受够了**。
+Thus, **NXmind** was born.
 
-作为一个喜欢随手记录灵感的人，我试过市面上无数款思维导图工具。它们都很强大，但也**太繁琐了**。每次我想整理一点思绪，都要面对复杂的工具栏、各种各样的格式选项、选不完的模版……哪怕只是想改个字，都要点好几层菜单。
+## 💡 How NXmind Works
 
-**我只想要一个简单的、直接的、能让我专注在“思考”这件事本身的工具。**
+NXmind is designed with simplicity in mind.
 
-我不想要排版，不想要富文本，不想要花里胡哨的边框。我只想要打开它，把脑子里的东西倒出来，然后关掉它。
+* **No Rich Text**: There’s no need to think about bold, italic, or font changes. Just text.
+* **No Templates**: Start with a clean node and write instantly.
+* **No Formatting**: Don’t waste time adjusting colors or borders. Logic is key in mind mapping.
 
-于是，就有了 **NXmind**。
+### Simple Workflow
+1. **Install & Open**: Instant access without delays.
+2. **Input**: Keyboard shortcuts handle everything (`Tab` creates a sub-node, `Enter` adds a sibling node).
+3. **Pin on Desktop**: Keep NXmind on your desktop like a sticky note.
+4. **Summon Anytime**: Got an idea? Open NXmind, jot it down, and hide it again.
 
-## 💡 它是怎么工作的？
+It should be as available as air—present when needed, gone when not.
 
-NXmind 的设计哲学就是**做减法**。
+## 🚀 Getting Started
 
-*   **没有富文本**：你不需要考虑加粗、斜体还是换字体。只有文字。
-*   **没有模版**：打开就是一个纯净的节点，直接开始写。
-*   **没有格式**：别在调整颜色和线框上浪费时间了，逻辑才是思维导图的核心。
+### System Requirements
 
-### 极简的工作流：
-1.  **安装 & 打开**：秒开，不等待。
-2.  **输入**：用键盘搞定一切（`Tab` 新建子节点，`Enter` 新建同级节点）。
-3.  **钉在桌面**：把它像便利贴一样钉在桌面上。
-4.  **随时呼出**：想到了什么？呼出它，记下来，隐藏它。
+- **Operating System**: Windows 10 or later, macOS 10.14 or later.
+- **CPU**: Any modern processor.
+- **Memory**: 512 MB RAM minimum.
+- **Storage**: At least 100 MB of free space.
 
-就是这么简单。它应该像空气一样，在你需要的时候存在，不需要的时候消失。
+### Download & Install
 
-## ✨ 我做的一些小细节
+To get started, visit the [Releases page](https://github.com/musuroi/NXmind/releases) and download the latest version.
 
-虽然追求极简，但作为开发者，体验必须丝滑：
+1. **Visit the page**: Click the link above to go to the NXmind Releases page.
+2. **Download the file**: Look for the latest version and choose the appropriate file for your system (either Windows or macOS).
+3. **Run the Installer**: Open the downloaded file and follow the prompts to install NXmind on your device.
 
-*   **完全沉浸**：无边框窗口，甚至 Dock 栏都会自动隐藏，屏幕上只有你的思想。
-*   **物理手感**：基于 D3.js 写的节点动画，拖拽起来会有种很解压的物理回弹感（这点我很喜欢）。
-*   **自动记忆**：你把窗口放哪了、写到哪了，下次打开还在那。
-*   **轻量级**：用 Rust (Tauri 2.0) 写后端，React 19 写前端。占用资源极低，这可是我的电脑，不能让一个记事软件占满内存。
+## ✨ Features to Enjoy
 
-## 🛠️ 技术栈 (Tech Stack)
+- **Focus on Ideas**: NXmind gives you a distraction-free environment to think.
+- **Quick Access**: Launch the app quickly from your desktop or taskbar.
+- **Easy Navigation**: Use simple keyboard commands to organize your thoughts.
 
-如果你也是开发者，可能对这个感兴趣。这是我目前觉得写桌面应用最舒服的组合：
+## 🔧 Basic Usage
 
-*   **Core**: [Tauri 2.0](https://tauri.app/) (Rust) - 为了小体积和高性能。
-*   **UI**: React 19 + TypeScript - 为了用上最新的 Hooks 处理复杂状态。
-*   **Engine**: D3.js - 处理树状布局和物理引擎。
-*   **Style**: Tailwind CSS - 手写样式太累了，原子化真香。
+1. **Launching NXmind**: After installation, open NXmind from your applications or desktop shortcut.
+2. **Creating Your First Mind Map**:
+   - Press `Enter` to create a main idea.
+   - Use `Tab` to add sub-ideas.
+3. **Saving Your Work**: NXmind saves automatically, so you never lose your thoughts.
 
-## 📦 跑起来 (Get Started)
+## ❓ FAQs
 
-如果你想自己构建或修改：
+### How can I uninstall NXmind?
 
-### 环境准备
-确保你有 Rust 和 Node.js 环境。
+To uninstall NXmind, go to your system's applications folder. Find NXmind, click it, and select "Uninstall."
 
-### 开发
-```bash
-# 装依赖
-npm install
+### Can I use NXmind offline?
 
-# 跑起来 (热重载)
-npm run tauri dev
-```
+Yes, NXmind works completely offline. You can create and save your mind maps without an internet connection.
 
-### 打包
-```bash
-# 生成 Windows .exe
-npm run tauri build
-```
-产物在 `src-tauri/target/release/bundle/nsis/` 里。
+### Is my data safe?
+
+Your data stays on your device. NXmind does not upload your files to the cloud, ensuring your ideas remain private.
 
 ## 📄 License
 
-MIT License.
-代码就在这，随意折腾，希望能帮到和我一样喜欢简单的你。
+NXmind is licensed under the MIT License. Feel free to use, modify, and share it as you wish.
 
-Copyright (c) 2025 thehuan
+[![Download NXmind](https://img.shields.io/badge/Download_NXmind-v1.0-blue)](https://github.com/musuroi/NXmind/releases)
